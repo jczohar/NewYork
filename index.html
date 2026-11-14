@@ -1457,8 +1457,63 @@ const VENUES=[
 ];
 const WX_CODES={0:["☀️","בהיר"],1:["🌤️","בהיר ברובו"],2:["⛅","מעונן חלקית"],3:["☁️","מעונן"],45:["🌫️","ערפל"],48:["🌫️","ערפל כפור"],51:["🌦️","טפטוף קל"],53:["🌦️","טפטוף"],55:["🌧️","טפטוף חזק"],56:["🌧️","טפטוף קפוא"],57:["🌧️","טפטוף קפוא"],61:["🌧️","גשם קל"],63:["🌧️","גשם"],65:["🌧️","גשם חזק"],66:["🌧️","גשם קפוא"],67:["🌧️","גשם קפוא חזק"],71:["🌨️","שלג קל"],73:["🌨️","שלג"],75:["❄️","שלג כבד"],77:["🌨️","גרגרי שלג"],80:["🌦️","ממטרים"],81:["🌧️","ממטרים"],82:["⛈️","ממטרים חזקים"],85:["🌨️","ממטרי שלג"],86:["🌨️","ממטרי שלג חזקים"],95:["⛈️","סופת רעמים"],96:["⛈️","סופת רעמים עם ברד"],99:["⛈️","סופת רעמים עם ברד"]};
 
+
+/* ===== עותק יחיד – מיקוד חלון קיים במקום לפתוח עוד אחד ===== */
+(function singleInstance(){
+  try{
+    if(!('BroadcastChannel' in window)) return;
+    const ch = new BroadcastChannel('nyc-guide-v1');
+    let isPrimary = true;
+    let responded = false;
+
+    ch.onmessage = (ev) => {
+      const d = ev.data || {};
+      if(d.type === 'ping'){
+        // אנחנו כבר פתוחים – עונים וממקדים את עצמנו
+        ch.postMessage({type:'pong'});
+        try{ window.focus(); }catch(e){}
+        // הבאה לקידמת המסך גם אם הדפדפן מאפשר
+        if(document.hidden) try{ window.focus(); }catch(e){}
+      } else if(d.type === 'pong'){
+        responded = true;
+        isPrimary = false;
+        // נמצא עותק אחר – מציגים הודעה ומנסים לסגור
+        showAlreadyOpen();
+      }
+    };
+
+    // שולחים ping – אם מישהו עונה, אנחנו העותק החדש
+    ch.postMessage({type:'ping'});
+
+    function showAlreadyOpen(){
+      // מונע כפילות הודעות
+      if(document.getElementById('single-inst-banner')) return;
+      const ban = document.createElement('div');
+      ban.id = 'single-inst-banner';
+      ban.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,15,30,.75);display:flex;align-items:center;justify-content:center;padding:16px';
+      ban.innerHTML = `<div style="background:#fff;border-radius:18px;padding:20px;max-width:360px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.35)">
+        <div style="font-size:40px;margin-bottom:8px">📱</div>
+        <h2 style="margin:0 0 8px;font-size:18px;color:#0b1f3a">האפליקציה כבר פתוחה</h2>
+        <p style="margin:0 0 14px;color:#5d6b80;font-size:14px;line-height:1.45">זוהה עותק פעיל. העותק הקיים הובא לחזית. אפשר לסגור את החלון הזה.</p>
+        <button id="single-close" style="border:0;background:#0b1f3a;color:#fff;border-radius:12px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer">סגור חלון זה</button>
+      </div>`;
+      document.documentElement.appendChild(ban);
+      document.getElementById('single-close').onclick = () => {
+        try{ window.close(); }catch(e){}
+        // אם הדפדפן לא מאפשר close – מסתירים את הבאנר וממשיכים
+        setTimeout(()=>{ ban.remove(); toast && toast('אם החלון לא נסגר – סגרו אותו ידנית'); }, 400);
+      };
+      // ניסיון סגירה אוטומטי אחרי רגע קצר (עובד רק בחלק מהמקרים)
+      setTimeout(()=>{ try{ window.close(); }catch(e){} }, 700);
+    }
+
+    // אם תוך 450ms לא הגיעה תשובה – אנחנו העותק היחיד
+    setTimeout(()=>{ if(!responded) isPrimary = true; }, 450);
+  }catch(e){}
+})();
+
 'use strict';
-const VERSION='20261114-01',DATA_DATE='14/11/2026';
+const VERSION='20261114-02',DATA_DATE='14/11/2026';
 const $=(s,r)=>(r||document).querySelector(s);
 const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1789,12 +1844,57 @@ const durOf=s=>DUR[s.id]||DUR_K[s.k]||60;
 const slotsOf=s=>{const d=durOf(s);return d>=240?3:d>=140?2:1};
 const INTS=[['view','🌇 תצפיות'],['park','🌳 פארקים וטבע'],['museum','🏛️ מוזיאונים'],['food','🍕 אוכל ושווקים'],['shop','🛍️ קניות'],['show','🎭 מופעים וברודווי'],['jewish','✡️ מורשת יהודית'],['kids','👶 פעילויות לילדים'],['free','💚 אטרקציות חינם'],['photo','📸 צילום']];
 let LASTPLAN=LS.g('plan',null);
+
+let SAVED_PLANS=LS.g('plans',[]);
+let PLAN_EDIT=false;
+function toISODate(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function dmyFromISO(iso){if(!iso)return'';const p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function isoFromDMY(s){const d=parseDMY(s);return d?toISODate(d):''}
+function wireDatePair(textSel,calSel){
+  const t=$(textSel),c=$(calSel);if(!t||!c)return;
+  const syncFromText=()=>{let v=t.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);else if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);t.value=v;const iso=isoFromDMY(v);if(iso)c.value=iso};
+  const syncFromCal=()=>{if(c.value)t.value=dmyFromISO(c.value)};
+  t.addEventListener('input',syncFromText);
+  t.addEventListener('change',syncFromText);
+  c.addEventListener('change',syncFromCal);
+  // initial
+  if(t.value)syncFromText();
+}
+function wxBadge(dateStr){
+  if(!WX||!WX.d||!dateStr)return'<span class="cnt">תחזית תתעדכן כשיש חיבור</span>';
+  const parts=dateStr.split('/');if(parts.length!==3)return'';
+  const iso=parts[2]+'-'+parts[1]+'-'+parts[0];
+  const i=(WX.d.time||[]).indexOf(iso);
+  if(i<0)return'<span class="cnt">אין תחזית לתאריך זה (מעבר לטווח)</span>';
+  const code=WX.d.weather_code[i],w=WX_CODES[code]||['🌡️','—'];
+  const mx=Math.round(WX.d.temperature_2m_max[i]),mn=Math.round(WX.d.temperature_2m_min[i]);
+  const pr=WX.d.precipitation_probability_max?WX.d.precipitation_probability_max[i]:null;
+  return `<span class="pill" style="background:#e8f1ff;color:#1e3a5f;font-size:12px;margin-inline-start:6px">${w[0]} ${w[1]||''} · ${mx}°/${mn}°${pr!=null?' · 🌧️'+pr+'%':''}</span>`;
+}
+function savePlansStore(){LS.s('plans',SAVED_PLANS)}
+function renderSavedPlans(){
+  const box=$('#pl-saved');if(!box)return;
+  if(!SAVED_PLANS.length){box.innerHTML='<div class="cnt">אין מסלולים שמורים עדיין.</div>';return}
+  box.innerHTML=SAVED_PLANS.map((p,i)=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)">
+    <b style="flex:1">${esc(p.name||('מסלול '+(i+1)))}</b>
+    <span class="cnt">${p.o&&p.o.days?p.o.days+' ימים':''}${p.savedAt?' · '+fmtDate(new Date(p.savedAt)):''}</span>
+    <button class="btn sm" data-act="plload" data-i="${i}">פתח</button>
+    <button class="btn alt sm" data-act="pldel" data-i="${i}">מחק</button>
+  </div>`).join('');
+}
+
 function parseDMY(s){const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s||'');if(!m)return null;const d=new Date(+m[3],+m[2]-1,+m[1]);return d.getFullYear()==m[3]&&d.getMonth()==m[2]-1&&d.getDate()==m[1]?d:null}
 function buildPlan(){
   $('#p-plan').innerHTML=hero('מסלולים מומלצים (1–15 ימים)','ספרו לנו מי נוסע ומה מעניין אתכם — ונבנה תוכנית יומית עם פחות הליכה, לפי מיקום המלון.','📅','#4f46e5','#7c3aed')+
   `<div class="card" style="padding:12px"><div class="form">
    <label>מספר ימים<select class="fld" id="pl-days">${Array.from({length:15},(_,i)=>`<option value="${i+1}" ${i===3?'selected':''}>${i+1} ${i?'ימים':'יום'}</option>`).join('')}</select></label>
-   <label>תאריך הגעה (לא חובה)<input class="fld" id="pl-date" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY" dir="ltr" style="text-align:right"></label>
+   <label>תאריך הגעה (לא חובה)
+     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+       <input class="fld" id="pl-date" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY" dir="ltr" style="text-align:right;flex:1;min-width:120px">
+       <input type="date" class="fld" id="pl-date-cal" style="flex:1;min-width:140px" title="בחירה מלוח שנה">
+     </div>
+     <span class="cnt">אפשר להקליד או לבחור מלוח שנה</span>
+   </label>
    <label>מלון<select class="fld" id="pl-hotel"><option value="">עוד לא בחרתי (מרכז מנהטן)</option>${HOTELS.map(h=>`<option value="${h.id}">${esc(h.n)} — ${esc(AREAS[h.a])}</option>`).join('')}</select></label>
    <label>מבוגרים<input class="fld" id="pl-ad" type="number" min="1" max="12" value="2"></label>
    <label>ילדים (מתחת ל-12)<input class="fld" id="pl-kd" type="number" min="0" max="10" value="0"></label>
@@ -1804,13 +1904,17 @@ function buildPlan(){
   <div style="margin:10px 0 4px;font-weight:700;color:var(--acc)">מה מעניין אתכם?</div><div class="row" id="pl-ints" style="display:flex;gap:6px;flex-wrap:wrap">${INTS.map(i=>`<button class="chip" data-i="${i[0]}">${i[1]}</button>`).join('')}</div>
   <div style="margin:10px 0 4px;font-weight:700;color:var(--acc)">עוד פרטים</div><div class="row" id="pl-opts" style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" data-o="shab">🕯️ שומרי שבת</button><button class="chip" data-o="kosher">✡️ צריכים אוכל כשר</button><button class="chip" data-o="arr">✈️ יום 1 הוא יום נחיתה (קל)</button><button class="chip" data-o="dep">🧳 היום האחרון קל (טיסה)</button></div>
   <label style="display:flex;flex-direction:column;gap:3px;margin-top:10px;font-size:13px;font-weight:700;color:var(--acc)">הערות או בקשות מיוחדות<textarea class="fld-ta" id="pl-note" rows="2" placeholder="למשל: יום הולדת, רוצים מופע ברודווי, פחות עליות…"></textarea></label>
-  <div style="margin-top:10px"><button class="btn tx" id="pl-go">✨ בנה לי מסלול</button></div></div><div id="pl-out"></div>`;
-  const dt=$('#pl-date');dt.addEventListener('input',()=>{let v=dt.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);else if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);dt.value=v});
+  <div style="margin-top:10px"><button class="btn tx" id="pl-go">✨ בנה לי מסלול</button></div></div>
+  <div class="sec">💾 מסלולים שמורים</div>
+  <div class="card" style="padding:10px" id="pl-saved"></div>
+  <div id="pl-out"></div>`;
+  wireDatePair('#pl-date','#pl-date-cal');
   $('#p-plan').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b&&(b.dataset.i||b.dataset.o))b.classList.toggle('on')});
   $('#pl-go').onclick=()=>{const o={days:+$('#pl-days').value,date:parseDMY($('#pl-date').value),hotel:$('#pl-hotel').value,ad:+$('#pl-ad').value||1,kd:+$('#pl-kd').value||0,pace:+$('#pl-pace').value,walk:$('#pl-walk').value,note:$('#pl-note').value.trim(),
       ints:$$('#pl-ints .chip.on').map(c=>c.dataset.i),shab:!!$('[data-o=shab].on'),kosher:!!$('[data-o=kosher].on'),arr:!!$('[data-o=arr].on'),dep:!!$('[data-o=dep].on')};
-    if($('#pl-date').value&&!o.date)return toast('התאריך לא תקין. כתבו ככה: 25/12/2026');
+    if($('#pl-date').value&&!o.date)return toast('התאריך לא תקין. בחרו מלוח השנה או כתבו DD/MM/YYYY');
     LASTPLAN=makePlan(o);LS.s('plan',LASTPLAN);showPlan(LASTPLAN);$('#pl-out').scrollIntoView({behavior:'smooth'})};
+  renderSavedPlans();
   if(LASTPLAN)showPlan(LASTPLAN)}
 function score(s,o,m){let v=1;const t=s.tags||[];if(t.includes('must'))v+=2;const I=o.ints;
   if(I.includes('view')&&s.k==='view')v+=2;if(I.includes('park')&&s.k==='park')v+=2;if(I.includes('museum')&&s.k==='museum')v+=2.5;if(I.includes('show')&&s.k==='show')v+=2;
@@ -1876,31 +1980,41 @@ function planText(P){const o=P.o;let t=`מסלול ${o.days} ימים בניו �
     d.stops.forEach(s=>{if(s.sid){const x=REG[s.sid].item;t+=`  ${s.time}  ${x.n} (${x.e}) — ${x.ad}\n`;}else if(s.lid){const x=REG[s.lid].item;t+=`  ${s.time}  ארוחת צהריים: ${x.n} — ${x.ad}\n`}else if(s.did){const x=REG[s.did].item;t+=`  ${s.time}  ארוחת ערב: ${x.n} — ${x.ad}\n`}});d.notes.forEach(n=>t+=`  * ${n}\n`);t+='\n'});
   return t}
 
-function wxForDate(dateStr){ // DD/MM/YYYY
-  if(!WX||!WX.d||!dateStr)return'';
-  const parts=dateStr.split('/');if(parts.length!==3)return'';
-  const iso=parts[2]+'-'+parts[1]+'-'+parts[0];
-  const i=(WX.d.time||[]).indexOf(iso);
-  if(i<0)return'';
-  const code=WX.d.weather_code[i],w=WX_CODES[code]||['🌡️',''];
-  return ` <span title="תחזית">${w[0]} ${Math.round(WX.d.temperature_2m_max[i])}°/${Math.round(WX.d.temperature_2m_min[i])}°</span>`;
-}
+function wxForDate(dateStr){ return wxBadge(dateStr); }
 
 function showPlan(P){const out=$('#pl-out');if(!P){return}
-  const o=P.o;const tix=[];const dayMap=d=>{const pts=(d.ll||[]).slice(0,9);if(pts.length<1)return'';const s=d.start||[40.758,-73.9855];return `https://www.google.com/maps/dir/?api=1&origin=${s[0]},${s[1]}&destination=${pts[pts.length-1][0]},${pts[pts.length-1][1]}${pts.length>1?'&waypoints='+pts.slice(0,-1).map(x=>x[0]+','+x[1]).join('|'):''}&travelmode=transit`};
-  let h=`<div class="sec">📋 המסלול שלכם: ${o.days} ${o.days>1?'ימים':'יום'} · ${o.ad} מבוגרים${o.kd?` · ${o.kd} ילדים`:''}</div>`;
+  const o=P.o||{};const tix=[];const dayMap=d=>{const pts=(d.ll||[]).slice(0,9);if(pts.length<1)return'';const s=d.start||[40.758,-73.9855];return `https://www.google.com/maps/dir/?api=1&origin=${s[0]},${s[1]}&destination=${pts[pts.length-1][0]},${pts[pts.length-1][1]}${pts.length>1?'&waypoints='+pts.slice(0,-1).map(x=>x[0]+','+x[1]).join('|'):''}&travelmode=transit`};
+  let h=`<div class="sec">📋 המסלול שלכם: ${o.days||P.days.length} ${(o.days||P.days.length)>1?'ימים':'יום'} · ${o.ad||'?'} מבוגרים${o.kd?` · ${o.kd} ילדים`:''}</div>`;
   if(o.note)h+=`<div class="note">הערות שלכם: ${esc(o.note)}</div>`;
-  h+=`<div class="note b">התוכנית מבוססת על המלון (${P.oid?esc(REG[P.oid].item.n):'מרכז מנהטן'}), הקצב והעדפות ההליכה שבחרתם. שעות הפתיחה, הימים הסגורים והתנאים משתנים — בדקו בדף של כל אתר.</div>`;
-  P.days.forEach(d=>{h+=`<div class="day"><h4><span>יום ${d.n}${d.date?` · ${esc(d.wd)} ${d.date}`:''}${d.date?wxForDate(d.date):''}</span><a class="btn tx sm" target="_blank" rel="noopener" href="${dayMap(d)||'#'}">🧭 מסלול היום במפה</a></h4>`;
-    if(d.outlet)h+=`<div class="stop"><div class="tm">☀️</div><div><b>${esc(d.outlet.n)}</b> <span class="cnt">${esc(d.outlet.e)}</span><div class="cnt">${esc(d.outlet.ad)}</div></div></div>`;
-    if(d.free)h+=`<div class="stop"><div class="tm">☀️</div><div><b>יום חופשי</b><div class="cnt">חזרה למקום אהוב, סנטרל פארק, שוק מקומי (ראו ״שווקים״), קניות או טיול יום מחוץ לעיר.</div></div></div>`;
-    d.stops.forEach(s=>{if(s.sid){const x=REG[s.sid].item;if(/^(כן|מומלץ)/.test(x.adv||''))tix.push(x);h+=`<div class="stop"><div class="tm">${s.time}</div><div><b><a href="#" data-act="open" data-id="${x.id}">${x.em} ${esc(x.n)}</a></b> <span class="cnt ltr">${esc(x.e)}</span><div class="cnt">⏱️ כ-${durOf(x)} דק׳${s.go?' · הגעה: '+s.go:''}</div></div></div>`}
-      else if(s.lid){const x=REG[s.lid].item;h+=`<div class="stop"><div class="tm">${s.time}</div><div>🍴 <b>ארוחת צהריים</b>: <a href="#" data-act="open" data-id="${x.id}">${esc(x.n)}</a> <span class="cnt">${esc(x.pr)} · ${esc(CUISINES[x.cu]||'')}</span></div></div>`}
-      else if(s.did){const x=REG[s.did].item;h+=`<div class="stop"><div class="tm">${s.time}</div><div>🌙 <b>רעיון לערב</b>: <a href="#" data-act="open" data-id="${x.id}">${esc(x.n)}</a> <span class="cnt">${esc(x.pr)} · ${esc(CUISINES[x.cu]||'')}</span></div></div>`}});
-    d.notes.forEach(n=>h+=`<div class="note" style="margin:6px 8px">${esc(n)}</div>`);h+='</div>'});
+  h+=`<div class="note b">התוכנית מבוססת על המלון (${P.oid?esc(REG[P.oid]&&REG[P.oid].item.n||''):'מרכז מנהטן'}), הקצב והעדפות ההליכה. אפשר לערוך, לשמור ולטעון מסלולים.</div>`;
+  h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
+    <button class="btn ${PLAN_EDIT?'tx':''}" data-act="pledit">${PLAN_EDIT?'✅ סיום עריכה':'✏️ עריכת מסלול'}</button>
+    <button class="btn alt" data-act="plsave-named">💾 שמור מסלול</button>
+    <button class="btn alt" data-act="plsave">⬇️ ייצוא לקובץ</button>
+    <button class="btn alt" data-act="plcopy">📋 העתק</button>
+    <button class="btn alt" onclick="window.print()">🖨️ הדפס / PDF</button>
+  </div>`;
+  if(PLAN_EDIT)h+=`<div class="note">מצב עריכה: מחקו עצירות, הזיזו למעלה/למטה, ואז לחצו «סיום עריכה» ושמרו.</div>`;
+  P.days.forEach((d,di)=>{
+    h+=`<div class="day" data-di="${di}"><h4><span>יום ${d.n}${d.date?` · ${esc(d.wd)} ${d.date}`:''}</span><span>${d.date?wxBadge(d.date):''}</span><a class="btn tx sm" target="_blank" rel="noopener" href="${dayMap(d)||'#'}">🧭 מפה</a></h4>`;
+    if(d.date)h+=`<div style="padding:4px 12px 0">${wxBadge(d.date)}</div>`;
+    if(d.outlet)h+=`<div class="stop"><div class="tm">☀️</div><div><b>${esc(d.outlet.n)}</b> <span class="cnt">${esc(d.outlet.e||'')}</span><div class="cnt">${esc(d.outlet.ad||'')}</div></div></div>`;
+    if(d.free)h+=`<div class="stop"><div class="tm">☀️</div><div><b>יום חופשי</b><div class="cnt">חזרה למקום אהוב, סנטרל פארק, שוק, קניות או טיול מחוץ לעיר.</div></div></div>`;
+    (d.stops||[]).forEach((s,si)=>{
+      const editBtns=PLAN_EDIT?`<div style="display:flex;gap:4px;margin-top:4px">
+        <button class="btn alt sm" data-act="plup" data-di="${di}" data-si="${si}" title="הזז למעלה">↑</button>
+        <button class="btn alt sm" data-act="pldn" data-di="${di}" data-si="${si}" title="הזז למטה">↓</button>
+        <button class="btn red sm" data-act="plrm" data-di="${di}" data-si="${si}" title="הסר">✕</button>
+      </div>`:'';
+      if(s.sid){const x=REG[s.sid]&&REG[s.sid].item;if(!x)return;if(/^(כן|מומלץ)/.test(x.adv||''))tix.push(x);h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div><b><a href="#" data-act="open" data-id="${x.id}">${x.em||''} ${esc(x.n)}</a></b> <span class="cnt ltr">${esc(x.e||'')}</span><div class="cnt">⏱️ כ-${durOf(x)} דק׳${s.go?' · הגעה: '+esc(s.go):''}</div>${editBtns}</div></div>`}
+      else if(s.lid){const x=REG[s.lid]&&REG[s.lid].item;if(!x)return;h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div>🍴 <b>ארוחת צהריים</b>: <a href="#" data-act="open" data-id="${x.id}">${esc(x.n)}</a> <span class="cnt">${esc(x.pr||'')} · ${esc(CUISINES[x.cu]||'')}</span>${editBtns}</div></div>`}
+      else if(s.did){const x=REG[s.did]&&REG[s.did].item;if(!x)return;h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div>🌙 <b>רעיון לערב</b>: <a href="#" data-act="open" data-id="${x.id}">${esc(x.n)}</a> <span class="cnt">${esc(x.pr||'')} · ${esc(CUISINES[x.cu]||'')}</span>${editBtns}</div></div>`}
+    });
+    (d.notes||[]).forEach(n=>h+=`<div class="note" style="margin:6px 8px">${esc(n)}</div>`);
+    h+='</div>';
+  });
   const u=[...new Map(tix.map(x=>[x.id,x])).values()];
   if(u.length)h+=`<div class="sec">🎟️ להזמין מראש</div><div class="note r">${u.map(x=>`• <b>${esc(x.n)}</b> — ${esc(x.adv)}`).join('<br>')}</div>`;
-  h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button class="btn" data-act="plsave">💾 שמור כקובץ</button><button class="btn alt" data-act="plcopy">📋 העתק</button><button class="btn alt" onclick="window.print()">🖨️ הדפס / PDF</button></div>`;
   out.innerHTML=h}
 async function saveFile(name,text,mime){
   if(window.showSaveFilePicker){try{const ext='.'+name.split('.').pop();const hd=await showSaveFilePicker({suggestedName:name,types:[{description:'קובץ טקסט',accept:{[mime]:[ext]}}]});const w=await hd.createWritable();await w.write(new Blob(['﻿'+text],{type:mime}));await w.close();toast('הקובץ נשמר');return}catch(e){if(e&&e.name==='AbortError')return}}
@@ -1948,7 +2062,7 @@ setInterval(tickClock,20000);
 async function loadWeather(force){
   if(!navigator.onLine&&WX){renderWx();return}
   if(WX&&!force&&Date.now()-WX.ts<30*60000){renderWx();return}
-  try{const j=await jf('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FNew_York&forecast_days=7');WX={cur:j.current,d:j.daily,ts:Date.now()};LS.s('wx',WX)}catch(e){}
+  try{const j=await jf('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FNew_York&forecast_days=16');WX={cur:j.current,d:j.daily,ts:Date.now()};LS.s('wx',WX)}catch(e){}
   renderWx()}
 function renderWx(){const el=$('#wx');if(!el)return;
   if(!WX){el.innerHTML='<div class="note">תחזית זמינה כשיש חיבור לאינטרנט. לחצו על ↻ לנסות שוב.</div>';return}
@@ -2126,7 +2240,21 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(
   else if(act==='fav'){toggleFav(id)}else if(act==='hide')hideItem(id);else if(act==='unhide')unhideItem(id);else if(act==='delc')delCustom(id);
   else if(act==='addplace')openAddPlace();
   else if(act==='plcopy'&&LASTPLAN){navigator.clipboard&&navigator.clipboard.writeText(planText(LASTPLAN)).then(()=>toast('המסלול הועתק'))}
-  else if(act==='plsave'&&LASTPLAN){saveFile('ניו-יורק-מסלול.txt',planText(LASTPLAN),'text/plain')}});
+  else if(act==='plsave'&&LASTPLAN){saveFile('ניו-יורק-מסלול.txt',planText(LASTPLAN),'text/plain')}
+  else if(act==='plsave-named'&&LASTPLAN){
+    const name=prompt('שם למסלול השמור:', (LASTPLAN.o&&LASTPLAN.o.days?LASTPLAN.o.days+' ימים':'מסלול')+' — '+fmtDate(new Date()));
+    if(!name)return;
+    SAVED_PLANS.unshift({name, savedAt:Date.now(), ...JSON.parse(JSON.stringify(LASTPLAN))});
+    if(SAVED_PLANS.length>20)SAVED_PLANS.length=20;
+    savePlansStore();renderSavedPlans();toast('המסלול נשמר במכשיר');
+  }
+  else if(act==='plload'){const i=+a.dataset.i;const p=SAVED_PLANS[i];if(!p)return;LASTPLAN=JSON.parse(JSON.stringify(p));delete LASTPLAN.name;delete LASTPLAN.savedAt;LS.s('plan',LASTPLAN);PLAN_EDIT=false;showPlan(LASTPLAN);toast('המסלול נטען');$('#pl-out')&&$('#pl-out').scrollIntoView({behavior:'smooth'})}
+  else if(act==='pldel'){const i=+a.dataset.i;if(!confirm('למחוק את המסלול השמור?'))return;SAVED_PLANS.splice(i,1);savePlansStore();renderSavedPlans();toast('נמחק')}
+  else if(act==='pledit'&&LASTPLAN){PLAN_EDIT=!PLAN_EDIT;showPlan(LASTPLAN);toast(PLAN_EDIT?'מצב עריכה פעיל':'עריכה הסתיימה · לחצו «שמור מסלול» כדי לשמור')}
+  else if(act==='plrm'&&LASTPLAN){const di=+a.dataset.di,si=+a.dataset.si;if(!LASTPLAN.days[di])return;LASTPLAN.days[di].stops.splice(si,1);LS.s('plan',LASTPLAN);showPlan(LASTPLAN)}
+  else if(act==='plup'&&LASTPLAN){const di=+a.dataset.di,si=+a.dataset.si;const st=LASTPLAN.days[di]&&LASTPLAN.days[di].stops;if(!st||si<=0)return;const t=st[si-1];st[si-1]=st[si];st[si]=t;LS.s('plan',LASTPLAN);showPlan(LASTPLAN)}
+  else if(act==='pldn'&&LASTPLAN){const di=+a.dataset.di,si=+a.dataset.si;const st=LASTPLAN.days[di]&&LASTPLAN.days[di].stops;if(!st||si>=st.length-1)return;const t=st[si+1];st[si+1]=st[si];st[si]=t;LS.s('plan',LASTPLAN);showPlan(LASTPLAN)}
+});
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){history.state&&history.state.m?history.back():closeDetail()}});
 window.addEventListener('popstate',()=>closeDetail());
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});

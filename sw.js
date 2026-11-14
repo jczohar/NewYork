@@ -61,3 +61,15 @@ self.addEventListener('fetch', e => {
     })
   );
 });
+
+
+/* ניסיון למקד חלון קיים כשמגיעה בקשת ניווט חוזרת */
+self.addEventListener('message', async (event) => {
+  if (!event.data || event.data.type !== 'focus-existing') return;
+  const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const c of all) {
+    if (c.url && c.url.includes(self.registration.scope) && 'focus' in c) {
+      try { await c.focus(); } catch (e) {}
+    }
+  }
+});
