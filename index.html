@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>מדריך המטייל — ניו יורק</title>
+<title>ניו יורק – מידע למטייל</title>
 <meta name="theme-color" content="#0b1f3a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="ניו יורק">
+<meta name="apple-mobile-web-app-title" content="ניו יורק – מידע למטייל">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>/* required styles */
 
@@ -810,6 +811,28 @@ footer{text-align:center;color:var(--mute);font-size:12px;padding:16px 8px}
 #last{font-size:10.5px;opacity:.85;white-space:nowrap}
 #wxmini{font-size:13px}
 @media(max-width:420px){#bar .ttl{font-size:13.5px}#last{display:none}}
+
+/* --- enhancements 20261114 --- */
+.btn-today{background:linear-gradient(90deg,#f5c518,#ff9f1c);color:#1a1a1a;font-weight:800;border:0;border-radius:12px;padding:8px 14px;font-size:13.5px;box-shadow:0 2px 8px rgba(245,197,24,.4)}
+.btn-today:active{transform:scale(.97)}
+#mapbox.fs,#metrobox.fs{position:fixed!important;inset:0;z-index:1500;height:100vh!important;min-height:100vh!important;border-radius:0!important;border:0!important}
+.fs-exit{position:fixed;top:12px;left:12px;z-index:1600;background:rgba(0,0,0,.7);color:#fff;border:0;border-radius:10px;padding:8px 14px;font-weight:700;font-size:14px}
+.phrase-tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.phrase-tbl th,.phrase-tbl td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:right;vertical-align:middle}
+.phrase-tbl th{background:#eef3fb;color:var(--acc);position:sticky;top:0}
+.phrase-tbl .ltr{direction:ltr;text-align:left;font-family:system-ui,sans-serif}
+.spk{border:0;background:var(--acc);color:#fff;border-radius:50%;width:32px;height:32px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.spk:active{opacity:.8}
+#pickModal{position:fixed;inset:0;background:rgba(5,15,30,.55);z-index:2100;display:none;align-items:flex-end;justify-content:center}
+#pickModal.on{display:flex}
+#pickSheet{background:#fff;width:100%;max-width:520px;max-height:85vh;overflow:auto;border-radius:20px 20px 0 0;padding:12px 14px 24px}
+#pickSheet h3{margin:4px 0 10px}
+.pick-cat{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.pick-item{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--line);cursor:pointer}
+.pick-item:active{background:#f0f5ff}
+.pick-item .em{font-size:22px}
+#todaySheet .day-rec{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px 0;box-shadow:var(--shadow)}
+
 </style>
 </head>
 <body>
@@ -836,6 +859,7 @@ footer{text-align:center;color:var(--mute);font-size:12px;padding:16px 8px}
   <div class="sp"></div>
   <span id="wxmini" data-wxmini></span>
   <span id="last"></span>
+  <button class="btn-today" id="doToday" title="המלצות להיום">✨ מה עושים היום</button>
   <button class="ibtn" id="instTop" style="display:none" title="התקנה">📲</button>
   <button class="ibtn" id="refresh" title="רענון ועדכון מידע">↻</button>
  </div>
@@ -843,6 +867,7 @@ footer{text-align:center;color:var(--mute);font-size:12px;padding:16px 8px}
 </header>
 <main id="panes"></main>
 <div id="modal"><div id="sheet"></div></div>
+<div id="pickModal"><div id="pickSheet"></div></div>
 <div id="toast"></div>
 <footer>יוצר: <span class="gold">יעקב זוהר</span> · מדריך המטייל — ניו יורק, ארצות הברית · גרסה <span id="ver"></span></footer>
 <script>/* @preserve
@@ -1433,7 +1458,7 @@ const VENUES=[
 const WX_CODES={0:["☀️","בהיר"],1:["🌤️","בהיר ברובו"],2:["⛅","מעונן חלקית"],3:["☁️","מעונן"],45:["🌫️","ערפל"],48:["🌫️","ערפל כפור"],51:["🌦️","טפטוף קל"],53:["🌦️","טפטוף"],55:["🌧️","טפטוף חזק"],56:["🌧️","טפטוף קפוא"],57:["🌧️","טפטוף קפוא"],61:["🌧️","גשם קל"],63:["🌧️","גשם"],65:["🌧️","גשם חזק"],66:["🌧️","גשם קפוא"],67:["🌧️","גשם קפוא חזק"],71:["🌨️","שלג קל"],73:["🌨️","שלג"],75:["❄️","שלג כבד"],77:["🌨️","גרגרי שלג"],80:["🌦️","ממטרים"],81:["🌧️","ממטרים"],82:["⛈️","ממטרים חזקים"],85:["🌨️","ממטרי שלג"],86:["🌨️","ממטרי שלג חזקים"],95:["⛈️","סופת רעמים"],96:["⛈️","סופת רעמים עם ברד"],99:["⛈️","סופת רעמים עם ברד"]};
 
 'use strict';
-const VERSION='20261113-01',DATA_DATE='13/11/2026';
+const VERSION='20261114-01',DATA_DATE='14/11/2026';
 const $=(s,r)=>(r||document).querySelector(s);
 const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1603,7 +1628,10 @@ let MAP,GR={},layerOn=LS.g('layers',{site:1,hotel:1,rest:0,shop:0,market:0,stn:0
 const LAYERS=[['site','🏛️ אתרים'],['hotel','🏨 מלונות'],['rest','🍽️ מסעדות'],['shop','🛍️ קניות'],['market','🧺 שווקים'],['stn','🚇 תחנות מטרו'],['custom','⭐ שלי']];
 function buildMapPane(){
   $('#p-map').innerHTML=hero('מפת העיר האינטראקטיבית','לחצו על סמל לפרטים, תמונה וניווט. בחרו מה להציג.','🗺️','#0ea5e9','#2563eb')+
-  `<div class="filt"><div class="row">${LAYERS.map(l=>`<button class="chip ${layerOn[l[0]]?'on':''}" data-layer="${l[0]}">${l[1]}</button>`).join('')}</div><div class="row"><button class="chip" data-mfav>★ מועדפים בלבד</button><button class="chip" data-locate>📍 המיקום שלי</button><button class="chip" data-recenter>🗽 חזרה למרכז</button><a class="chip" target="_blank" rel="noopener" href="https://www.google.com/maps/@40.7484,-73.9857,13z">פתח ב-Google Maps</a></div></div><div id="mapbox"></div><div class="cnt" style="margin-top:6px">המפה דורשת חיבור לאינטרנט להצגת רקע המפה. הסמלים והפרטים זמינים גם בלי חיבור.</div>`;
+  `<div class="filt"><div class="row"><button class="btn tx" id="pickOnMap">📍 בחר מקום במפה</button><button class="btn alt" id="mapFs">⛶ מסך מלא</button></div>
+  <div class="row">${LAYERS.map(l=>`<button class="chip ${layerOn[l[0]]?'on':''}" data-layer="${l[0]}">${l[1]}</button>`).join('')}</div>
+  <div class="row"><button class="chip" data-mfav>★ מועדפים בלבד</button><button class="chip" data-locate>📍 המיקום שלי</button><button class="chip" data-recenter>🗽 חזרה למרכז</button><a class="chip" target="_blank" rel="noopener" href="https://www.google.com/maps/@40.7484,-73.9857,13z">פתח ב-Google Maps</a></div></div>
+  <div id="mapbox"></div><div class="cnt" style="margin-top:6px">המפה דורשת חיבור לאינטרנט להצגת רקע המפה. הסמלים והפרטים זמינים גם בלי חיבור.</div>`;
   $('#p-map').addEventListener('click',e=>{const b=e.target.closest('button.chip');if(!b)return;
     if(b.dataset.layer){layerOn[b.dataset.layer]=layerOn[b.dataset.layer]?0:1;LS.s('layers',layerOn);b.classList.toggle('on',!!layerOn[b.dataset.layer]);refreshMapLayers()}
     else if('mfav' in b.dataset){b.classList.toggle('on');refreshMapLayers()}
@@ -1660,7 +1688,7 @@ function buildTransit(){
   `<div class="sec">💳 איך משלמים במטרו ובאוטובוס</div><div class="note g"><b>OMNY</b>: מצמידים כרטיס אשראי (עם סמל מגע), טלפון (Apple/Google Pay) או כרטיס OMNY לקורא בכניסה. כרטיס המטרו הישן (MetroCard) לא בשימוש יותר. תשלום באותו אמצעי לאורך השבוע מצבר תקרה שבועית.</div>
   <div class="card" style="overflow:auto"><table class="t"><tr><th>סוג</th><th>מחיר</th><th>הערות</th></tr>${TRANSPORT_FARES.map(f=>`<tr><td>${esc(f[0])}</td><td><b>${esc(f[1])}</b></td><td>${esc(f[2])}</td></tr>`).join('')}</table></div>
   <div class="sec">🗺️ מפת המטרו האינטראקטיבית</div><div class="cnt">מפה סכמטית של הקווים והתחנות המרכזיות (המיקום משוער). לחצו על תחנה לפרטים ולאתרים בסביבה (עם תמונות). מפה רשמית: <a target="_blank" rel="noopener" href="https://new.mta.info/maps/subway-map">new.mta.info/maps/subway-map</a></div>
-  <div class="filt"><div class="row">${lines.map(l=>`<button class="ln ${DARK_LINES.includes(l)?'dark':''}" style="background:${LINE_COL[l]};border:0;cursor:pointer;height:28px;min-width:28px" data-ml="${l}">${l}</button>`).join('')}<button class="chip" data-ml="">הצג הכל</button></div></div><div id="metrobox" style="height:60vh;min-height:340px;border-radius:16px;overflow:hidden;border:1px solid var(--line)"></div>
+  <div class="filt"><div class="row">${lines.map(l=>`<button class="ln ${DARK_LINES.includes(l)?'dark':''}" style="background:${LINE_COL[l]};border:0;cursor:pointer;height:28px;min-width:28px" data-ml="${l}">${l}</button>`).join('')}<button class="chip" data-ml="">הצג הכל</button></div></div><div style="display:flex;gap:8px;margin:6px 0"><button class="btn alt sm" id="metroFs">⛶ מפת מטרו במסך מלא</button></div><div id="metrobox" style="height:60vh;min-height:340px;border-radius:16px;overflow:hidden;border:1px solid var(--line)"></div>
   <div class="sec">🧭 מדריך הגעה ממקום למקום</div><div class="card" style="padding:10px"><div class="form"><label>מאיפה<select class="fld" id="rg-a"></select></label><label>לאן<select class="fld" id="rg-b"></select></label></div><div style="margin-top:8px"><button class="btn" id="rg-go">מצא דרך</button> <button class="btn alt" id="rg-sw">⇅ החלף כיוון</button></div><div id="rg-out" style="margin-top:8px"></div></div>
   <div class="sec">🚉 שמות התחנות הסופיות של כל קו</div><div class="card" style="overflow:auto"><table class="t"><tr><th>קו</th><th>תחנה סופית א׳</th><th>תחנה סופית ב׳</th><th>מסלול</th></tr>${TERMINALS.map(t=>`<tr><td>${lineBadges([t[0]])}</td><td class="ltr">${esc(t[1])}</td><td class="ltr">${esc(t[2])}</td><td>${esc(t[3])}</td></tr>`).join('')}</table></div><div class="cnt">בלילות, בסופי שבוע ובעבודות — המסלולים משתנים. בדקו באפליקציית MTA או ב-Google Maps.</div>
   <div class="sec">📖 איך נוסעים</div><div class="note">${HOW_TO_RIDE.map(x=>'• '+esc(x)).join('<br>')}</div>
@@ -1704,9 +1732,55 @@ function routeGo(){const a=resolve($('#rg-a').value),b=resolve($('#rg-b').value)
   out.innerHTML=h}
 
 /* ================= טיפים ================= */
+
+const PHRASES=[
+{he:"שלום / היי",en:"Hello / Hi",pr:"heh-LOH / hai"},
+{he:"בוקר טוב",en:"Good morning",pr:"good MOR-ning"},
+{he:"ערב טוב",en:"Good evening",pr:"good EEV-ning"},
+{he:"תודה",en:"Thank you",pr:"thank yoo"},
+{he:"תודה רבה",en:"Thank you very much",pr:"thank yoo VEH-ree much"},
+{he:"בבקשה",en:"Please / You're welcome",pr:"pleez / yor WEL-kum"},
+{he:"סליחה",en:"Excuse me / Sorry",pr:"ek-SKYOOZ mee / SOR-ee"},
+{he:"כמה זה עולה?",en:"How much is it?",pr:"hao much iz it"},
+{he:"איפה השירותים?",en:"Where is the bathroom?",pr:"weir iz thuh BATH-room"},
+{he:"איפה תחנת המטרו?",en:"Where is the subway station?",pr:"weir iz thuh SUB-way STAY-shun"},
+{he:"אני צריך עזרה",en:"I need help",pr:"ai need help"},
+{he:"אני לא מדבר אנגלית טוב",en:"I don't speak English well",pr:"ai dont speek ING-lish wel"},
+{he:"אפשר את החשבון בבקשה",en:"The check, please",pr:"thuh chek pleez"},
+{he:"מים / מים בבקשה",en:"Water / Water please",pr:"WAH-ter / WAH-ter pleez"},
+{he:"ללא בצל / ללא גלוטן",en:"No onion / Gluten free",pr:"noh UN-yun / GLOO-ten free"},
+{he:"יש לכם תפריט כשר?",en:"Do you have a kosher menu?",pr:"doo yoo hav uh KOH-sher MEN-yoo"},
+{he:"איך מגיעים ל...?",en:"How do I get to...?",pr:"hao doo ai get too"},
+{he:"שמאלה / ימינה / ישר",en:"Left / Right / Straight",pr:"left / rait / streyt"},
+{he:"המלון שלי הוא...",en:"My hotel is...",pr:"mai hoh-TEL iz"},
+{he:"יש לכם Wi-Fi?",en:"Do you have Wi-Fi?",pr:"doo yoo hav WAI-fai"},
+{he:"הקוד בבקשה",en:"The password, please",pr:"thuh PASS-wurd pleez"},
+{he:"עזרה! / משטרה!",en:"Help! / Police!",pr:"help / puh-LEES"},
+{he:"אני אלרגי ל...",en:"I'm allergic to...",pr:"aim uh-LER-jik too"},
+{he:"כמה זמן לוקח?",en:"How long does it take?",pr:"hao long daz it teyk"},
+{he:"יום נעים / להתראות",en:"Have a nice day / Goodbye",pr:"hav uh nais dey / good-BAI"}
+];
+function speakEn(text){
+  if(!window.speechSynthesis){toast('השמעה לא נתמכת במכשיר');return}
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='en-US';u.rate=0.9;
+  const vs=speechSynthesis.getVoices();
+  const v=vs.find(x=>x.lang.startsWith('en')&&/US|United|Google|Samantha|Alex/i.test(x.name))||vs.find(x=>x.lang.startsWith('en'));
+  if(v)u.voice=v;
+  speechSynthesis.speak(u);
+}
+
 function buildTips(){
-  $('#p-tips').innerHTML=hero('טיפים — דברים שחשוב לדעת','הכנות, כסף, בטיחות, אוכל, שבת וחגים — בקצרה.','💡','#0d9488','#14b8a6')+
-  TIPS.map(g=>`<details class="more" open><summary>${g.em} ${esc(g.c)}</summary><ul style="margin:6px 0;padding-inline-start:20px">${g.items.map(x=>`<li style="margin:4px 0">${esc(x)}</li>`).join('')}</ul></details>`).join('')}
+  const phTbl=`<div class="sec">🗣️ ביטויים שימושיים באנגלית</div>
+  <div class="note b">לחצו על 🔊 להשמעת ההגייה. הביטוי בעברית, באנגלית, והגייה באותיות לטיניות.</div>
+  <div class="card" style="overflow:auto;max-height:420px"><table class="phrase-tbl"><thead><tr><th>עברית</th><th>English</th><th>הגייה</th><th></th></tr></thead><tbody>
+  ${PHRASES.map(p=>`<tr><td>${esc(p.he)}</td><td class="ltr">${esc(p.en)}</td><td class="ltr">${esc(p.pr)}</td><td><button class="spk" data-spk="${esc(p.en)}" title="השמע">🔊</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+  $('#p-tips').innerHTML=hero('טיפים — דברים שחשוב לדעת','הכנות, כסף, בטיחות, אוכל, שבת וחגים — וביטויים שימושיים.','💡','#0d9488','#14b8a6')+
+  TIPS.map(g=>`<details class="more" open><summary>${g.em} ${esc(g.c)}</summary><ul style="margin:6px 0;padding-inline-start:20px">${g.items.map(x=>`<li style="margin:4px 0">${esc(x)}</li>`).join('')}</ul></details>`).join('')+phTbl;
+  $('#p-tips').addEventListener('click',e=>{const b=e.target.closest('[data-spk]');if(b)speakEn(b.dataset.spk)});
+}
 /* ================= מסלולים ================= */
 const DUR={liberty:270,memorial:120,met:150,amnh:150,moma:120,cpark:120,hline:60,coney:150,broadway:180,radiocity:120,esb:60,totr:60,summit:75,edge:60,oneworld:60,sif:60,gct:45,un:90};
 const DUR_K={icon:45,park:60,hood:75,view:60,show:90,museum:120,faith:30,jew:75,fun:75};
@@ -1801,12 +1875,23 @@ function planText(P){const o=P.o;let t=`מסלול ${o.days} ימים בניו �
   P.days.forEach(d=>{t+=`יום ${d.n}${d.date?' — '+d.wd+' '+d.date:''}\n`;if(d.outlet)t+=`  • ${d.outlet.n} (${d.outlet.ad})\n`;if(d.free)t+='  • יום חופשי: שוק, קניות או סנטרל פארק לפי הרצון\n';
     d.stops.forEach(s=>{if(s.sid){const x=REG[s.sid].item;t+=`  ${s.time}  ${x.n} (${x.e}) — ${x.ad}\n`;}else if(s.lid){const x=REG[s.lid].item;t+=`  ${s.time}  ארוחת צהריים: ${x.n} — ${x.ad}\n`}else if(s.did){const x=REG[s.did].item;t+=`  ${s.time}  ארוחת ערב: ${x.n} — ${x.ad}\n`}});d.notes.forEach(n=>t+=`  * ${n}\n`);t+='\n'});
   return t}
+
+function wxForDate(dateStr){ // DD/MM/YYYY
+  if(!WX||!WX.d||!dateStr)return'';
+  const parts=dateStr.split('/');if(parts.length!==3)return'';
+  const iso=parts[2]+'-'+parts[1]+'-'+parts[0];
+  const i=(WX.d.time||[]).indexOf(iso);
+  if(i<0)return'';
+  const code=WX.d.weather_code[i],w=WX_CODES[code]||['🌡️',''];
+  return ` <span title="תחזית">${w[0]} ${Math.round(WX.d.temperature_2m_max[i])}°/${Math.round(WX.d.temperature_2m_min[i])}°</span>`;
+}
+
 function showPlan(P){const out=$('#pl-out');if(!P){return}
   const o=P.o;const tix=[];const dayMap=d=>{const pts=(d.ll||[]).slice(0,9);if(pts.length<1)return'';const s=d.start||[40.758,-73.9855];return `https://www.google.com/maps/dir/?api=1&origin=${s[0]},${s[1]}&destination=${pts[pts.length-1][0]},${pts[pts.length-1][1]}${pts.length>1?'&waypoints='+pts.slice(0,-1).map(x=>x[0]+','+x[1]).join('|'):''}&travelmode=transit`};
   let h=`<div class="sec">📋 המסלול שלכם: ${o.days} ${o.days>1?'ימים':'יום'} · ${o.ad} מבוגרים${o.kd?` · ${o.kd} ילדים`:''}</div>`;
   if(o.note)h+=`<div class="note">הערות שלכם: ${esc(o.note)}</div>`;
   h+=`<div class="note b">התוכנית מבוססת על המלון (${P.oid?esc(REG[P.oid].item.n):'מרכז מנהטן'}), הקצב והעדפות ההליכה שבחרתם. שעות הפתיחה, הימים הסגורים והתנאים משתנים — בדקו בדף של כל אתר.</div>`;
-  P.days.forEach(d=>{h+=`<div class="day"><h4><span>יום ${d.n}${d.date?` · ${esc(d.wd)} ${d.date}`:''}</span><a class="btn tx sm" target="_blank" rel="noopener" href="${dayMap(d)||'#'}">🧭 מסלול היום במפה</a></h4>`;
+  P.days.forEach(d=>{h+=`<div class="day"><h4><span>יום ${d.n}${d.date?` · ${esc(d.wd)} ${d.date}`:''}${d.date?wxForDate(d.date):''}</span><a class="btn tx sm" target="_blank" rel="noopener" href="${dayMap(d)||'#'}">🧭 מסלול היום במפה</a></h4>`;
     if(d.outlet)h+=`<div class="stop"><div class="tm">☀️</div><div><b>${esc(d.outlet.n)}</b> <span class="cnt">${esc(d.outlet.e)}</span><div class="cnt">${esc(d.outlet.ad)}</div></div></div>`;
     if(d.free)h+=`<div class="stop"><div class="tm">☀️</div><div><b>יום חופשי</b><div class="cnt">חזרה למקום אהוב, סנטרל פארק, שוק מקומי (ראו ״שווקים״), קניות או טיול יום מחוץ לעיר.</div></div></div>`;
     d.stops.forEach(s=>{if(s.sid){const x=REG[s.sid].item;if(/^(כן|מומלץ)/.test(x.adv||''))tix.push(x);h+=`<div class="stop"><div class="tm">${s.time}</div><div><b><a href="#" data-act="open" data-id="${x.id}">${x.em} ${esc(x.n)}</a></b> <span class="cnt ltr">${esc(x.e)}</span><div class="cnt">⏱️ כ-${durOf(x)} דק׳${s.go?' · הגעה: '+s.go:''}</div></div></div>`}
@@ -1891,6 +1976,149 @@ function openAddPlace(){const sh=$('#sheet');sh.innerHTML=`<button class="x" dat
   $('#ap-ok').onclick=async()=>{const n=$('#ap-n').value.trim(),a=$('#ap-a').value.trim();if(!n)return toast('כתבו שם למקום');const c={id:'c'+Date.now(),n,e:'',ad:a,note:$('#ap-note').value.trim(),em:'⭐'};
     if(a){try{const j=await jf('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(a+', New York'));if(j&&j[0])c.ll=[+j[0].lat,+j[0].lon]}catch(e){}}
     custom.push(c);REG[c.id]={type:'custom',item:c};LS.s('custom',custom);closeDetail();refreshLists();if(window.refreshMapLayers)refreshMapLayers();toast(c.ll?'נשמר והוצג במפה':'נשמר')}}
+
+/* ===== Enhancements: pick place, fullscreen, do today ===== */
+function openPickPlace(){
+  const cats=[
+    {k:'site',t:'🏛️ אתרים',ids:()=>SITES.map(x=>x.id)},
+    {k:'hotel',t:'🏨 מלונות',ids:()=>HOTELS.map(x=>x.id)},
+    {k:'rest',t:'🍽️ מסעדות',ids:()=>RESTS.map(x=>x.id)},
+    {k:'shop',t:'🛍️ קניות',ids:()=>SHOPS.map(x=>x.id)},
+    {k:'market',t:'🧺 שווקים',ids:()=>MARKETS.map(x=>x.id)},
+    {k:'stn',t:'🚇 תחנות מטרו',ids:()=>STN_DATA.map(s=>'stn:'+s.id)},
+    {k:'custom',t:'⭐ שלי',ids:()=>custom.map(x=>x.id)}
+  ];
+  let curK='site';
+  const sheet=$('#pickSheet');
+  function render(){
+    const cat=cats.find(c=>c.k===curK);
+    const ids=cat.ids();
+    sheet.innerHTML=`<button class="x" style="float:left;position:static" data-act="closepick">✕</button><h3>בחר מקום להצגה במפה</h3>
+    <div class="pick-cat">${cats.map(c=>`<button class="chip ${c.k===curK?'on':''}" data-pkcat="${c.k}">${c.t}</button>`).join('')}</div>
+    <div id="pickList">${ids.map(id=>{
+      if(String(id).startsWith('stn:')){const s=SD[id.slice(4)];return `<div class="pick-item" data-stn="${s.id}"><span class="em">🚇</span><div><b class="ltr">${esc(s.en)}</b><div class="cnt">${esc(s.he)} · ${s.lines.join(' ')}</div></div></div>`;}
+      const r=REG[id];if(!r||!r.item.ll)return'';const i=r.item;
+      return `<div class="pick-item" data-pid="${id}"><span class="em">${i.em||'📍'}</span><div><b>${esc(i.n)}</b>${i.e?`<div class="cnt ltr">${esc(i.e)}</div>`:''}<div class="cnt">${esc(areaTxt(r)||'')}</div></div></div>`;
+    }).join('')||'<div class="empty">אין פריטים</div>'}</div>
+    <div style="margin-top:10px" class="cnt">לאחר בחירה המפה תתמקד במקום. אפשר גם לבקש מסלול הגעה.</div>`;
+  }
+  render();
+  $('#pickModal').classList.add('on');
+  sheet.onclick=e=>{
+    const catB=e.target.closest('[data-pkcat]');if(catB){curK=catB.dataset.pkcat;render();return}
+    if(e.target.closest('[data-act=closepick]')){closePick();return}
+    const it=e.target.closest('[data-pid]');
+    if(it){const id=it.dataset.pid;closePick();flyToPlace(id);return}
+    const st=e.target.closest('[data-stn]');
+    if(st){closePick();flyToStation(st.dataset.stn)}
+  };
+}
+function closePick(){$('#pickModal').classList.remove('on')}
+function flyToPlace(id){
+  go('map');setTimeout(()=>{
+    if(!MAP)initMap();
+    const r=REG[id];if(!r||!r.item.ll)return toast('אין מיקום במפה');
+    layerOn[r.type]=1;LS.s('layers',layerOn);refreshMapLayers();
+    MAP.setView(r.item.ll,16);
+    // open popup of matching marker if possible
+    setTimeout(()=>{
+      MAP.eachLayer(l=>{if(l.getPopup&&l.getLatLng&&l.getLatLng().lat===r.item.ll[0]){l.openPopup()}});
+    },400);
+    toast(r.item.n+' · במפה');
+    // offer directions
+    setTimeout(()=>{
+      if(confirm('לפתוח מסלול הגעה ל'+r.item.n+' ב-Google Maps?'))window.open(mapsDir(r.item),'_blank');
+    },600);
+  },100);
+}
+function flyToStation(id){
+  go('map');setTimeout(()=>{
+    if(!MAP)initMap();
+    layerOn.stn=1;LS.s('layers',layerOn);refreshMapLayers();
+    const s=SD[id];MAP.setView([s.lat,s.lng],16);
+    toast(s.en);
+  },100);
+}
+function toggleFs(boxId){
+  const box=$(boxId);if(!box)return;
+  const isFs=box.classList.contains('fs');
+  if(isFs){
+    box.classList.remove('fs');
+    const ex=$('.fs-exit');if(ex)ex.remove();
+    if(boxId==='#mapbox'&&MAP)setTimeout(()=>MAP.invalidateSize(),200);
+    if(boxId==='#metrobox'&&MET)setTimeout(()=>MET.invalidateSize(),200);
+  }else{
+    box.classList.add('fs');
+    const btn=document.createElement('button');btn.className='fs-exit';btn.textContent='✕ יציאה ממסך מלא';
+    btn.onclick=()=>toggleFs(boxId);
+    document.body.appendChild(btn);
+    if(boxId==='#mapbox'&&MAP)setTimeout(()=>MAP.invalidateSize(),200);
+    if(boxId==='#metrobox'&&MET)setTimeout(()=>MET.invalidateSize(),200);
+  }
+}
+function doToday(){
+  const now=new Date();
+  const wd=now.getDay(); // 0 Sun
+  const wx=WX&&WX.cur?WX.cur:null;
+  const code=wx?wx.weather_code:1;
+  const temp=wx?Math.round(wx.temperature_2m):null;
+  const rainy=[51,53,55,61,63,65,80,81,82,95,96,99].includes(code);
+  const cold=temp!=null&&temp<8;
+  const hot=temp!=null&&temp>28;
+  let recs=[];
+  // prefer saved plan day matching today if exists
+  if(LASTPLAN&&LASTPLAN.o&&LASTPLAN.o.date){
+    const start=new Date(LASTPLAN.o.date);
+    const diff=Math.floor((now.setHours(0,0,0,0)-new Date(start).setHours(0,0,0,0))/864e5);
+    if(diff>=0&&diff<LASTPLAN.days.length){
+      const day=LASTPLAN.days[diff];
+      recs.push({title:'מתוך המסלול שלך – יום '+(diff+1),items:day.stops.filter(s=>s.sid).map(s=>({id:s.sid,time:s.time}))});
+    }
+  }
+  // weather / day based
+  let pool=SITES.filter(s=>!HID.has(s.id));
+  if(rainy||cold) pool=pool.filter(s=>(s.tags||[]).includes('indoor')||s.k==='museum'||s.k==='show'||s.k==='shop');
+  else if(hot) pool=pool.filter(s=>(s.tags||[]).includes('indoor')||s.k==='park'||s.id==='cpark'||s.k==='view');
+  if(wd===5||wd===6){ // weekend – more outdoor / iconic
+    pool.sort((a,b)=>((b.tags||[]).includes('must')?2:0)-((a.tags||[]).includes('must')?2:0));
+  }
+  const top=pool.filter(s=>(s.tags||[]).includes('must')||s.k==='icon'||s.k==='view').slice(0,6);
+  if(!top.length) top.push(...pool.slice(0,5));
+  recs.push({title:'המלצות להיום'+(temp!=null?` · ${temp}°C`:'' )+(rainy?' · גשום – מומלץ בפנים':cold?' · קר':hot?' · חם':''),items:top.map(s=>({id:s.id}))});
+  // lunch ideas
+  const lunch=RESTS.filter(r=>!HID.has(r.id)&&r.pr.length<=3).slice(0,3);
+  const sheet=$('#sheet');
+  let h=`<button class="x" data-act="close">✕</button><div class="db" style="padding-top:40px"><h2>✨ מה עושים היום</h2>
+  <div class="cnt">${DAYS[wd]} · ${fmtDate(now)}${temp!=null?` · עכשיו ${temp}°C`:''}</div>`;
+  recs.forEach(r=>{
+    h+=`<div class="day-rec"><b>${esc(r.title)}</b>`;
+    r.items.forEach(it=>{
+      const rr=REG[it.id];if(!rr)return;
+      h+=`<div style="margin:6px 0;display:flex;gap:8px;align-items:center"><span>${rr.item.em||'📍'}</span><a href="#" data-act="open" data-id="${it.id}">${esc(rr.item.n)}</a>${it.time?`<span class="cnt">${it.time}</span>`:''}<button class="btn alt sm" data-act="fly" data-id="${it.id}">מפה</button></div>`;
+    });
+    h+='</div>';
+  });
+  if(lunch.length){
+    h+=`<div class="day-rec"><b>🍽️ רעיונות לארוחה</b>${lunch.map(r=>`<div style="margin:4px 0"><a href="#" data-act="open" data-id="${r.id}">${r.em} ${esc(r.n)}</a> <span class="cnt">${esc(r.pr)} · ${esc(CUISINES[r.cu]||'')}</span></div>`).join('')}</div>`;
+  }
+  h+=`<div class="note">ההמלצות מתחשבות במזג האוויר, ביום בשבוע${LASTPLAN?', ובמסלול ששמרתם':''}. לחצו על מקום לפרטים או על ״מפה״ כדי לראות אותו במפה.</div>
+  <div style="margin-top:10px"><button class="btn" data-act="close">סגור</button> <button class="btn alt" onclick="go('plan')">📅 למסלולים</button></div></div>`;
+  sheet.innerHTML=h;$('#modal').classList.add('on');
+  sheet.addEventListener('click',function handler(e){
+    const b=e.target.closest('[data-act=fly]');
+    if(b){e.preventDefault();closeDetail();flyToPlace(b.dataset.id)}
+  },{once:false});
+}
+
+// wire buttons after DOM ready (called from existing init)
+function wireEnhancements(){
+  const dt=$('#doToday');if(dt)dt.onclick=doToday;
+  const pm=$('#pickOnMap');if(pm)pm.onclick=openPickPlace;
+  const mf=$('#mapFs');if(mf)mf.onclick=()=>toggleFs('#mapbox');
+  const mtf=$('#metroFs');if(mtf)mtf.onclick=()=>toggleFs('#metrobox');
+  $('#pickModal').addEventListener('click',e=>{if(e.target.id==='pickModal')closePick()});
+}
+
 /* ================= אתחול ================= */
 document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act,id=a.dataset.id;
   if(act==='open'){e.preventDefault();window._curId=id;if($('#modal').classList.contains('on')){const sc=1;}openDetail(id)}
@@ -1908,6 +2136,7 @@ buildShell();buildMapPane();buildSites();buildHotels();buildTransit();buildRest(
 const lastT=LS.g('last',null);if(lastT){const t=new Date(lastT);$('#last').textContent=`עודכן: ${fmtDate(t)} ${pad(t.getHours())}:${pad(t.getMinutes())}`}else $('#last').textContent='תוכן מ-'+DATA_DATE;
 go((location.hash||'').slice(1)||LS.g('tab','map'),true);
 loadWeather();loadFx().then(()=>{});
+wireEnhancements();
 window.addEventListener('hashchange',()=>go(location.hash.slice(1),true));
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>

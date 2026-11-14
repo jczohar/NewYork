@@ -1,33 +1,33 @@
 {
- "name": "מדריך המטייל — ניו יורק",
- "short_name": "ניו יורק",
- "description": "מדריך מטייל מלא לניו יורק: מפה, אתרים, מלונות, תחבורה, מסעדות, מסלולים ועוד",
- "lang": "he",
- "dir": "rtl",
- "start_url": "./index.html",
- "scope": "./",
- "display": "standalone",
- "orientation": "portrait",
- "background_color": "#0b1f3a",
- "theme_color": "#0b1f3a",
- "icons": [
-  {
-   "src": "icons/icon-192.png",
-   "sizes": "192x192",
-   "type": "image/png",
-   "purpose": "any"
-  },
-  {
-   "src": "icons/icon-512.png",
-   "sizes": "512x512",
-   "type": "image/png",
-   "purpose": "any"
-  },
-  {
-   "src": "icons/icon-maskable-512.png",
-   "sizes": "512x512",
-   "type": "image/png",
-   "purpose": "maskable"
-  }
- ]
+  "name": "ניו יורק – מידע למטייל",
+  "short_name": "ניו יורק",
+  "description": "מדריך המטייל לניו יורק – אתרים, מלונות, מסעדות, תחבורה, מסלולים ואירועים. יוצר: יעקב זוהר",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b1f3a",
+  "theme_color": "#0b1f3a",
+  "orientation": "portrait-primary",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["travel", "navigation", "lifestyle"],
+  "screenshots": []
 }
