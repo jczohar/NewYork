@@ -833,6 +833,29 @@ footer{text-align:center;color:var(--mute);font-size:12px;padding:16px 8px}
 .pick-item .em{font-size:22px}
 #todaySheet .day-rec{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px 0;box-shadow:var(--shadow)}
 
+
+.cal-btn{border:1px solid #cfd9ea;background:#fff;border-radius:10px;width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;flex:none;padding:0}
+.cal-btn:active{background:#eef3fb}
+.date-wrap{display:flex;gap:6px;align-items:center}
+.date-wrap input[type=date].cal-hidden{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.doc-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}
+.mode-sel{border:1px solid #cfd9ea;border-radius:8px;padding:3px 6px;font-size:12px;font-family:inherit}
+
+
+#planmap{height:360px;border-radius:14px;border:1px solid var(--line);margin:8px 0;overflow:hidden}
+#planmap.fs{position:fixed!important;inset:0;z-index:1500;height:100vh!important;border-radius:0!important}
+.day-dot{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;color:#fff;font-size:11px;font-weight:800}
+@media print{
+  #top,.filt,.acts,#toast,footer,.btn,button,.cal-btn,#pl-saved input,#pl-doc-url,#pl-doc-desc,[data-act],.mode-sel{display:none!important}
+  body{padding:0;background:#fff}
+  section.pane{display:block!important}
+  section.pane:not(#p-plan){display:none!important}
+  #p-plan{display:block!important}
+  .day{break-inside:avoid;page-break-inside:avoid}
+  #planmap{height:280px;break-inside:avoid}
+  .hero{box-shadow:none}
+}
+
 </style>
 </head>
 <body>
@@ -1513,7 +1536,7 @@ const WX_CODES={0:["☀️","בהיר"],1:["🌤️","בהיר ברובו"],2:["
 })();
 
 'use strict';
-const VERSION='20261114-02',DATA_DATE='14/11/2026';
+const VERSION='20261115-02',DATA_DATE='14/11/2026';
 const $=(s,r)=>(r||document).querySelector(s);
 const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1874,28 +1897,93 @@ function wxBadge(dateStr){
 function savePlansStore(){LS.s('plans',SAVED_PLANS)}
 function renderSavedPlans(){
   const box=$('#pl-saved');if(!box)return;
-  if(!SAVED_PLANS.length){box.innerHTML='<div class="cnt">אין מסלולים שמורים עדיין.</div>';return}
-  box.innerHTML=SAVED_PLANS.map((p,i)=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)">
+  if(!SAVED_PLANS.length){box.innerHTML='<div class="cnt">אין מסלולים שמורים עדיין. בנו מסלול ולחצו «שמור מסלול».</div>';return}
+  box.innerHTML='<div class="cnt" style="margin-bottom:6px">לחצו «פתח» לטעינה או «🗑️ מחק» למחיקה לצמיתות מהמכשיר.</div>'+SAVED_PLANS.map((p,i)=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line)">
     <b style="flex:1">${esc(p.name||('מסלול '+(i+1)))}</b>
-    <span class="cnt">${p.o&&p.o.days?p.o.days+' ימים':''}${p.savedAt?' · '+fmtDate(new Date(p.savedAt)):''}</span>
-    <button class="btn sm" data-act="plload" data-i="${i}">פתח</button>
-    <button class="btn alt sm" data-act="pldel" data-i="${i}">מחק</button>
+    <span class="cnt">${p.o&&p.o.days?p.o.days+' ימים':''}${p.savedAt?' · נשמר '+fmtDate(new Date(p.savedAt)):''}</span>
+    <button class="btn sm" data-act="plload" data-i="${i}">📂 פתח</button>
+    <button class="btn red sm" data-act="pldel" data-i="${i}">🗑️ מחק</button>
   </div>`).join('');
 }
 
 function parseDMY(s){const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s||'');if(!m)return null;const d=new Date(+m[3],+m[2]-1,+m[1]);return d.getFullYear()==m[3]&&d.getMonth()==m[2]-1&&d.getDate()==m[1]?d:null}
+
+function hotelBaseOptions(){
+  const parts=[];
+  parts.push('<option value="">🗽 מרכז מנהטן (ברירת מחדל)</option>');
+  parts.push('<optgroup label="🏨 מלונות מומלצים">');
+  HOTELS.forEach(h=>{
+    const near=nearbyStations(h.ll,1,0.9);
+    const st=near.length?(' · ליד '+near[0].s.en):'';
+    parts.push(`<option value="hotel:${h.id}">${esc(h.n)} — ${esc(AREAS[h.a]||'')} (${h.st}★)${esc(st)}</option>`);
+  });
+  parts.push('</optgroup>');
+  parts.push('<optgroup label="📍 אזורים">');
+  const areaLL={dt:[40.7074,-74.0113],vil:[40.7359,-73.9911],mid:[40.7549,-73.9840],up:[40.7829,-73.9654],bk:[40.6782,-73.9442]};
+  Object.entries(AREAS).forEach(([k,name])=>{
+    if(areaLL[k]) parts.push(`<option value="area:${k}">${esc(name)}</option>`);
+  });
+  parts.push('</optgroup>');
+  parts.push('<optgroup label="🚇 קרוב לתחנת מטרו מרכזית">');
+  const hubs=['tsq','gct','penn','union','herald','fulton','canal','atlantic','jackson','columbus'];
+  // map known hub ids from STN_DATA by english name keywords
+  const hubNames={tsq:'Times Sq',gct:'Grand Central',penn:'Penn Station',union:'Union Sq',herald:'Herald Sq',fulton:'Fulton',canal:'Canal',atlantic:'Atlantic',jackson:'Jackson',columbus:'Columbus Circle'};
+  STN_DATA.forEach(s=>{
+    const en=s.en.toLowerCase();
+    const key=Object.keys(hubNames).find(k=>en.includes(hubNames[k].toLowerCase().split(' ')[0]));
+    if(key && !parts.some(x=>x.includes('stn:'+s.id))){
+      parts.push(`<option value="stn:${s.id}">🚇 ${esc(s.en)} (${esc(s.he)}) · קווים ${s.lines.join(' ')}</option>`);
+    }
+  });
+  // limit: only stations with 3+ lines as hubs
+  const hubSt=STN_DATA.filter(s=>s.lines.length>=3).slice(0,25);
+  // rebuild hub group cleaner
+  const before=parts.length;
+  // actually push unique hubs with 3+ lines
+  const seen=new Set();
+  const hubOpts=[];
+  STN_DATA.filter(s=>s.lines.length>=3).sort((a,b)=>b.lines.length-a.lines.length).forEach(s=>{
+    if(seen.has(s.id))return;seen.add(s.id);
+    hubOpts.push(`<option value="stn:${s.id}">🚇 ${esc(s.en)} · ${s.lines.join(' ')}</option>`);
+  });
+  // replace the hub group we started - simpler: just return full string rebuilt
+  return [
+    '<option value="">🗽 מרכז מנהטן (ברירת מחדל)</option>',
+    '<optgroup label="🏨 מלונות מומלצים">'+HOTELS.map(h=>{
+      const near=nearbyStations(h.ll,1,0.85);
+      const st=near.length?` · ≈${Math.round(near[0].d*1000/75)} דק׳ ל-${near[0].s.en}`:'';
+      return `<option value="hotel:${h.id}">${esc(h.n)} — ${esc(AREAS[h.a]||'')} (${h.st}★)${esc(st)}</option>`;
+    }).join('')+'</optgroup>',
+    '<optgroup label="📍 אזורים">'+Object.entries({dt:[40.7074,-74.0113],vil:[40.7359,-73.9911],mid:[40.7549,-73.9840],up:[40.7829,-73.9654],bk:[40.6782,-73.9442]}).map(([k,ll])=>`<option value="area:${k}">${esc(AREAS[k]||k)}</option>`).join('')+'</optgroup>',
+    '<optgroup label="🚇 תחנות מטרו מרכזיות (3+ קווים)">'+hubOpts.slice(0,30).join('')+'</optgroup>'
+  ].join('');
+}
+function resolveBase(val){
+  if(!val)return{ll:[40.7580,-73.9855],label:'מרכז מנהטן',id:''};
+  if(val.startsWith('hotel:')){const id=val.slice(6);const h=REG[id]&&REG[id].item;return h?{ll:h.ll,label:h.n,id}:{ll:[40.7580,-73.9855],label:'מרכז מנהטן',id:''}}
+  if(val.startsWith('area:')){const k=val.slice(5);const areaLL={dt:[40.7074,-74.0113],vil:[40.7359,-73.9911],mid:[40.7549,-73.9840],up:[40.7829,-73.9654],bk:[40.6782,-73.9442]};return{ll:areaLL[k]||[40.7580,-73.9855],label:AREAS[k]||k,id:''}}
+  if(val.startsWith('stn:')){const id=val.slice(4);const s=SD[id];return s?{ll:[s.lat,s.lng],label:s.en,id:''}:{ll:[40.7580,-73.9855],label:'מרכז מנהטן',id:''}}
+  // legacy hotel id without prefix
+  if(REG[val]&&REG[val].type==='hotel'){const h=REG[val].item;return{ll:h.ll,label:h.n,id:val}}
+  return{ll:[40.7580,-73.9855],label:'מרכז מנהטן',id:''};
+}
+
 function buildPlan(){
   $('#p-plan').innerHTML=hero('מסלולים מומלצים (1–15 ימים)','ספרו לנו מי נוסע ומה מעניין אתכם — ונבנה תוכנית יומית עם פחות הליכה, לפי מיקום המלון.','📅','#4f46e5','#7c3aed')+
   `<div class="card" style="padding:12px"><div class="form">
    <label>מספר ימים<select class="fld" id="pl-days">${Array.from({length:15},(_,i)=>`<option value="${i+1}" ${i===3?'selected':''}>${i+1} ${i?'ימים':'יום'}</option>`).join('')}</select></label>
    <label>תאריך הגעה (לא חובה)
-     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+     <div class="date-wrap">
        <input class="fld" id="pl-date" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY" dir="ltr" style="text-align:right;flex:1;min-width:120px">
-       <input type="date" class="fld" id="pl-date-cal" style="flex:1;min-width:140px" title="בחירה מלוח שנה">
+       <button type="button" class="cal-btn" id="pl-cal-btn" title="בחירה מלוח שנה" aria-label="לוח שנה">📅</button>
+       <input type="date" class="cal-hidden" id="pl-date-cal" tabindex="-1" aria-hidden="true">
      </div>
-     <span class="cnt">אפשר להקליד או לבחור מלוח שנה</span>
+     <span class="cnt">הקלידו תאריך או לחצו על 📅 לבחירה מלוח שנה</span>
    </label>
-   <label>מלון<select class="fld" id="pl-hotel"><option value="">עוד לא בחרתי (מרכז מנהטן)</option>${HOTELS.map(h=>`<option value="${h.id}">${esc(h.n)} — ${esc(AREAS[h.a])}</option>`).join('')}</select></label>
+   <label>בסיס / מקום שינה
+     <select class="fld" id="pl-hotel">${hotelBaseOptions()}</select>
+     <span class="cnt">מלון מומלץ, אזור, או קרוב לתחנת מטרו — משפיע על מסלולי ההליכה והתחבורה</span>
+   </label>
    <label>מבוגרים<input class="fld" id="pl-ad" type="number" min="1" max="12" value="2"></label>
    <label>ילדים (מתחת ל-12)<input class="fld" id="pl-kd" type="number" min="0" max="10" value="0"></label>
    <label>קצב הטיול<select class="fld" id="pl-pace"><option value="1">רגוע (2–3 מקומות ביום)</option><option value="2" selected>רגיל (3–4 מקומות ביום)</option><option value="3">אינטנסיבי (4–6 מקומות ביום)</option></select></label>
@@ -1909,8 +1997,10 @@ function buildPlan(){
   <div class="card" style="padding:10px" id="pl-saved"></div>
   <div id="pl-out"></div>`;
   wireDatePair('#pl-date','#pl-date-cal');
+  const calBtn=$('#pl-cal-btn'),calIn=$('#pl-date-cal');
+  if(calBtn&&calIn){calBtn.onclick=()=>{try{if(calIn.showPicker)calIn.showPicker();else calIn.click()}catch(e){calIn.click()}}}
   $('#p-plan').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b&&(b.dataset.i||b.dataset.o))b.classList.toggle('on')});
-  $('#pl-go').onclick=()=>{const o={days:+$('#pl-days').value,date:parseDMY($('#pl-date').value),hotel:$('#pl-hotel').value,ad:+$('#pl-ad').value||1,kd:+$('#pl-kd').value||0,pace:+$('#pl-pace').value,walk:$('#pl-walk').value,note:$('#pl-note').value.trim(),
+  $('#pl-go').onclick=()=>{const o={days:+$('#pl-days').value,date:parseDMY($('#pl-date').value),hotel:$('#pl-hotel').value,base:$('#pl-hotel').value,ad:+$('#pl-ad').value||1,kd:+$('#pl-kd').value||0,pace:+$('#pl-pace').value,walk:$('#pl-walk').value,note:$('#pl-note').value.trim(),
       ints:$$('#pl-ints .chip.on').map(c=>c.dataset.i),shab:!!$('[data-o=shab].on'),kosher:!!$('[data-o=kosher].on'),arr:!!$('[data-o=arr].on'),dep:!!$('[data-o=dep].on')};
     if($('#pl-date').value&&!o.date)return toast('התאריך לא תקין. בחרו מלוח השנה או כתבו DD/MM/YYYY');
     LASTPLAN=makePlan(o);LS.s('plan',LASTPLAN);showPlan(LASTPLAN);$('#pl-out').scrollIntoView({behavior:'smooth'})};
@@ -1924,7 +2014,7 @@ function score(s,o,m){let v=1;const t=s.tags||[];if(t.includes('must'))v+=2;cons
   if(s.id==='coney'&&[10,11,0,1,2,3].includes(m))v-=3;if(s.id==='dyker')v+=[10,11].includes(m)?2:-9;if(s.id==='bryant')v+=[10,11,0,1].includes(m)?2:0;if(s.id==='radiocity')v+=[10,11,0].includes(m)?2:-2;
   if(s.id==='broadway'&&!I.includes('show'))v+=1;return v}
 function makePlan(o){
-  const base=o.date||new Date();const m=base.getMonth();const H=o.hotel?REG[o.hotel].item.ll:[40.7580,-73.9855];
+  const baseDate=o.date||new Date();const m=baseDate.getMonth();const baseLoc=resolveBase(o.base||o.hotel||'');const H=baseLoc.ll;o._baseLabel=baseLoc.label;o._baseId=baseLoc.id;
   const cap0=[3,4,5][o.pace-1]-(o.kd>0?0.5:0)-(o.walk==='low'?1:0)+(o.walk==='high'?0.5:0);const maxR=o.walk==='low'?2.2:o.walk==='high'?5:3.5;
   let pool=SITES.filter(s=>!HID.has(s.id)).map(s=>({s,sc:score(s,o,m)})).filter(x=>x.sc>-5);
   const used=new Set(),days=[],usedR=new Set();const arrC=2,depC=2;
@@ -1982,40 +2072,187 @@ function planText(P){const o=P.o;let t=`מסלול ${o.days} ימים בניו �
 
 function wxForDate(dateStr){ return wxBadge(dateStr); }
 
+
+const DAY_COLS=['#2563eb','#dc2626','#16a34a','#ca8a04','#7c3aed','#db2777','#0d9488','#ea580c','#4f46e5','#0891b2','#be123c','#65a30d','#9333ea','#c2410c','#0369a1'];
+let PLAN_MAP=null, PLAN_MAP_LAYERS=[];
+function collectDayPoints(d){
+  const pts=[];
+  if(d.start)pts.push(d.start);
+  (d.stops||[]).forEach(s=>{
+    if(s.sid&&REG[s.sid]&&REG[s.sid].item.ll)pts.push(REG[s.sid].item.ll);
+    else if(s.lid&&REG[s.lid]&&REG[s.lid].item.ll)pts.push(REG[s.lid].item.ll);
+    else if(s.did&&REG[s.did]&&REG[s.did].item.ll)pts.push(REG[s.did].item.ll);
+  });
+  if(d.ll&&d.ll.length){d.ll.forEach(ll=>{if(ll&&!pts.some(p=>p[0]===ll[0]&&p[1]===ll[1]))pts.push(ll)})}
+  return pts;
+}
+function clearPlanMapLayers(){
+  if(!PLAN_MAP)return;
+  PLAN_MAP_LAYERS.forEach(l=>{try{PLAN_MAP.removeLayer(l)}catch(e){}});
+  PLAN_MAP_LAYERS=[];
+}
+function ensurePlanMap(){
+  const box=$('#planmap');if(!box)return null;
+  // אם ה-DOM נבנה מחדש — צריך מפה חדשה
+  if(PLAN_MAP && PLAN_MAP.getContainer && PLAN_MAP.getContainer()!==box){
+    try{PLAN_MAP.remove()}catch(e){}
+    PLAN_MAP=null;PLAN_MAP_LAYERS=[];
+  }
+  if(PLAN_MAP){PLAN_MAP.invalidateSize();return PLAN_MAP}
+  if(typeof L==='undefined'){
+    box.innerHTML='<div class="empty">המפה דורשת חיבור. אפשר להשתמש בקישורי Google Maps לכל יום.</div>';
+    return null;
+  }
+  PLAN_MAP=L.map(box,{scrollWheelZoom:true}).setView([40.75,-73.98],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(PLAN_MAP);
+  setTimeout(()=>PLAN_MAP.invalidateSize(),200);
+  return PLAN_MAP;
+}
+function drawPlanOnMap(P, dayIndex){
+  const map=ensurePlanMap();if(!map||!P)return;
+  clearPlanMapLayers();
+  const bounds=[];
+  const days=(dayIndex==null)?P.days:[P.days[dayIndex]].filter(Boolean);
+  days.forEach((d,idx)=>{
+    const di=(dayIndex==null)?P.days.indexOf(d):dayIndex;
+    const col=DAY_COLS[di%DAY_COLS.length];
+    const pts=collectDayPoints(d);
+    if(pts.length<1)return;
+    pts.forEach(p=>bounds.push(p));
+    if(pts.length>=2){
+      const pl=L.polyline(pts,{color:col,weight:4,opacity:0.85}).addTo(map);
+      PLAN_MAP_LAYERS.push(pl);
+    }
+    pts.forEach((pt,pi)=>{
+      const label=(pi===0&&d.start)?'בסיס':String(pi);
+      const mk=L.marker(pt,{icon:L.divIcon({className:'',html:`<div class="day-dot" style="background:${col}">${label}</div>`,iconSize:[22,22],iconAnchor:[11,11]})}).addTo(map);
+      let title='יום '+(d.n|| (di+1));
+      if(pi>0){
+        const stop=(d.stops||[])[pi-1];
+        if(stop&&stop.sid&&REG[stop.sid])title+=' · '+REG[stop.sid].item.n;
+      }
+      mk.bindPopup(`<b>${esc(title)}</b>`);
+      PLAN_MAP_LAYERS.push(mk);
+    });
+  });
+  if(bounds.length)map.fitBounds(bounds,{padding:[30,30]});
+  const leg=$('#planmap-legend');
+  if(leg){
+    if(dayIndex==null){
+      leg.innerHTML=P.days.map((d,i)=>`<span class="chip on" style="background:${DAY_COLS[i%DAY_COLS.length]};color:#fff;border:0">יום ${d.n}</span>`).join(' ');
+    }else{
+      leg.innerHTML=`<span class="chip on" style="background:${DAY_COLS[dayIndex%DAY_COLS.length]};color:#fff;border:0">יום ${P.days[dayIndex].n} בלבד</span>`;
+    }
+  }
+}
+function sharePlan(P){
+  if(!P)return;
+  const text=planText(P);
+  if(navigator.share){
+    navigator.share({title:'מסלול ניו יורק — יעקב זוהר',text:text}).then(()=>toast('שותף')).catch(()=>{});
+    return;
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>toast('המסלול הועתק — אפשר להדביק בוואטסאפ / מייל'));
+    return;
+  }
+  toast('השיתוף לא נתמך — השתמשו בהעתקה או בייצוא');
+}
+function printPlanPdf(){
+  // ensure plan tab visible for print
+  try{go('plan',true)}catch(e){}
+  setTimeout(()=>window.print(),200);
+}
+function savePlanFile(P){
+  if(!P)return;
+  const name='ניו-יורק-מסלול-'+fmtDate(new Date()).replace(/\//g,'-')+'.txt';
+  saveFile(name,planText(P),'text/plain');
+}
+
 function showPlan(P){const out=$('#pl-out');if(!P){return}
-  const o=P.o||{};const tix=[];const dayMap=d=>{const pts=(d.ll||[]).slice(0,9);if(pts.length<1)return'';const s=d.start||[40.758,-73.9855];return `https://www.google.com/maps/dir/?api=1&origin=${s[0]},${s[1]}&destination=${pts[pts.length-1][0]},${pts[pts.length-1][1]}${pts.length>1?'&waypoints='+pts.slice(0,-1).map(x=>x[0]+','+x[1]).join('|'):''}&travelmode=transit`};
+  if(!P.docs)P.docs=[];
+  const o=P.o||{};const tix=[];
+  const baseLabel=o._baseLabel||(P.oid&&REG[P.oid]?REG[P.oid].item.n:'מרכז מנהטן');
+  const dayMap=(d,mode)=>{const pts=(d.ll||[]).slice(0,9);if(pts.length<1)return'';const s=d.start||[40.758,-73.9855];const m=mode||'transit';return `https://www.google.com/maps/dir/?api=1&origin=${s[0]},${s[1]}&destination=${pts[pts.length-1][0]},${pts[pts.length-1][1]}${pts.length>1?'&waypoints='+pts.slice(0,-1).map(x=>x[0]+','+x[1]).join('|'):''}&travelmode=${m}`};
+  const modes=[{v:'transit',t:'🚇 מטרו/אוטובוס'},{v:'walking',t:'🚶 ברגל'},{v:'driving',t:'🚕 מונית/רכב'}];
   let h=`<div class="sec">📋 המסלול שלכם: ${o.days||P.days.length} ${(o.days||P.days.length)>1?'ימים':'יום'} · ${o.ad||'?'} מבוגרים${o.kd?` · ${o.kd} ילדים`:''}</div>`;
-  if(o.note)h+=`<div class="note">הערות שלכם: ${esc(o.note)}</div>`;
-  h+=`<div class="note b">התוכנית מבוססת על המלון (${P.oid?esc(REG[P.oid]&&REG[P.oid].item.n||''):'מרכז מנהטן'}), הקצב והעדפות ההליכה. אפשר לערוך, לשמור ולטעון מסלולים.</div>`;
+  if(o.note)h+=`<div class="note">הערות: ${esc(o.note)}</div>`;
+  h+=`<div class="note b">בסיס: <b>${esc(baseLabel)}</b>. אפשר לערוך עצירות, תחבורה, קישורים למסמכים ולשמור.</div>`;
   h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
     <button class="btn ${PLAN_EDIT?'tx':''}" data-act="pledit">${PLAN_EDIT?'✅ סיום עריכה':'✏️ עריכת מסלול'}</button>
-    <button class="btn alt" data-act="plsave-named">💾 שמור מסלול</button>
-    <button class="btn alt" data-act="plsave">⬇️ ייצוא לקובץ</button>
-    <button class="btn alt" data-act="plcopy">📋 העתק</button>
-    <button class="btn alt" onclick="window.print()">🖨️ הדפס / PDF</button>
+    <button class="btn alt" data-act="plsave-named">💾 שמור באפליקציה</button>
+    <button class="btn alt" data-act="plsave">⬇️ שמור כקובץ</button>
+    <button class="btn alt" data-act="plshare">📤 שתף</button>
+    <button class="btn alt" data-act="plcopy">📋 העתק טקסט</button>
+    <button class="btn alt" data-act="plprint">🖨️ הדפס / PDF</button>
   </div>`;
-  if(PLAN_EDIT)h+=`<div class="note">מצב עריכה: מחקו עצירות, הזיזו למעלה/למטה, ואז לחצו «סיום עריכה» ושמרו.</div>`;
+  h+=`<div class="sec">🗺️ מסלול על המפה</div>
+  <div class="note b">הציגו יום בודד או את כל הימים יחד. כל יום בצבע אחר. אפשר גם לפתוח ב-Google Maps.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
+    <button class="btn sm" data-act="plmapall">כל הימים יחד</button>
+    ${P.days.map((d,i)=>`<button class="btn alt sm" data-act="plmapday" data-di="${i}">יום ${d.n}</button>`).join('')}
+    <button class="btn alt sm" data-act="plmapfs">⛶ מסך מלא</button>
+  </div>
+  <div id="planmap-legend" style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0"></div>
+  <div id="planmap"></div>`;
+  if(PLAN_EDIT)h+=`<div class="note">מצב עריכה: הזזה/מחיקת עצירות, בחירת אמצעי תחבורה לכל מקטע, והוספת קישורים למסמכים.</div>`;
+
+  /* מסמכים וקישורים */
+  h+=`<div class="card" style="padding:10px;margin:8px 0"><div style="font-weight:700;color:var(--acc);margin-bottom:6px">📎 קישורים ומסמכים למסלול</div>`;
+  if(!(P.docs&&P.docs.length))h+=`<div class="cnt">אין קישורים עדיין.</div>`;
+  (P.docs||[]).forEach((doc,di)=>{
+    h+=`<div class="doc-row"><a class="ltr" href="${esc(doc.url)}" target="_blank" rel="noopener">${esc(doc.url)}</a>
+      <span style="flex:1">${esc(doc.desc||'')}</span>
+      ${PLAN_EDIT||true?`<button class="btn red sm" data-act="pldocrm" data-di="${di}">מחק</button>`:''}
+    </div>`;
+  });
+  h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+    <input class="fld" id="pl-doc-url" placeholder="https://..." dir="ltr" style="flex:2;min-width:140px;text-align:left">
+    <input class="fld" id="pl-doc-desc" placeholder="תיאור המסמך / התמונה" style="flex:2;min-width:120px">
+    <button class="btn sm" data-act="pldocadd">➕ הוסף קישור</button>
+  </div></div>`;
+
   P.days.forEach((d,di)=>{
-    h+=`<div class="day" data-di="${di}"><h4><span>יום ${d.n}${d.date?` · ${esc(d.wd)} ${d.date}`:''}</span><span>${d.date?wxBadge(d.date):''}</span><a class="btn tx sm" target="_blank" rel="noopener" href="${dayMap(d)||'#'}">🧭 מפה</a></h4>`;
-    if(d.date)h+=`<div style="padding:4px 12px 0">${wxBadge(d.date)}</div>`;
-    if(d.outlet)h+=`<div class="stop"><div class="tm">☀️</div><div><b>${esc(d.outlet.n)}</b> <span class="cnt">${esc(d.outlet.e||'')}</span><div class="cnt">${esc(d.outlet.ad||'')}</div></div></div>`;
-    if(d.free)h+=`<div class="stop"><div class="tm">☀️</div><div><b>יום חופשי</b><div class="cnt">חזרה למקום אהוב, סנטרל פארק, שוק, קניות או טיול מחוץ לעיר.</div></div></div>`;
+    const wd=d.wd||(d.date?(function(){const p=parseDMY(d.date);return p?DAYS[p.getDay()]:''})():'');
+    const mode=d.travelMode||'transit';
+    h+=`<div class="day" data-di="${di}"><h4 style="flex-wrap:wrap">
+      <span>יום ${d.n}${d.date?` · <b>${esc(wd)}</b> · ${d.date}`:''}</span>
+      ${d.date?wxBadge(d.date):''}
+      <span style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+        ${PLAN_EDIT?`<select class="mode-sel" data-act="pldaymode" data-di="${di}">${modes.map(m=>`<option value="${m.v}" ${m.v===mode?'selected':''}>${m.t}</option>`).join('')}</select>`:`<span class="cnt">${(modes.find(m=>m.v===mode)||{}).t||'🚇'}</span>`}
+        <a class="btn tx sm" target="_blank" rel="noopener" href="${dayMap(d,mode)||'#'}">🧭 מסלול במפה</a>
+      </span>
+    </h4>`;
+    if(d.outlet)h+=`<div class="stop"><div class="tm">☀️</div><div><b>${esc(d.outlet.n)}</b><div class="cnt">${esc(d.outlet.ad||'')}</div></div></div>`;
+    if(d.free)h+=`<div class="stop"><div class="tm">☀️</div><div><b>יום חופשי</b><div class="cnt">סנטרל פארק, שוק, קניות או טיול מחוץ לעיר.</div></div></div>`;
     (d.stops||[]).forEach((s,si)=>{
-      const editBtns=PLAN_EDIT?`<div style="display:flex;gap:4px;margin-top:4px">
-        <button class="btn alt sm" data-act="plup" data-di="${di}" data-si="${si}" title="הזז למעלה">↑</button>
-        <button class="btn alt sm" data-act="pldn" data-di="${di}" data-si="${si}" title="הזז למטה">↓</button>
-        <button class="btn red sm" data-act="plrm" data-di="${di}" data-si="${si}" title="הסר">✕</button>
-      </div>`:'';
-      if(s.sid){const x=REG[s.sid]&&REG[s.sid].item;if(!x)return;if(/^(כן|מומלץ)/.test(x.adv||''))tix.push(x);h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div><b><a href="#" data-act="open" data-id="${x.id}">${x.em||''} ${esc(x.n)}</a></b> <span class="cnt ltr">${esc(x.e||'')}</span><div class="cnt">⏱️ כ-${durOf(x)} דק׳${s.go?' · הגעה: '+esc(s.go):''}</div>${editBtns}</div></div>`}
-      else if(s.lid){const x=REG[s.lid]&&REG[s.lid].item;if(!x)return;h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div>🍴 <b>ארוחת צהריים</b>: <a href="#" data-act="open" data-id="${x.id}">${esc(x.n)}</a> <span class="cnt">${esc(x.pr||'')} · ${esc(CUISINES[x.cu]||'')}</span>${editBtns}</div></div>`}
-      else if(s.did){const x=REG[s.did]&&REG[s.did].item;if(!x)return;h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div>🌙 <b>רעיון לערב</b>: <a href="#" data-act="open" data-id="${x.id}">${esc(x.n)}</a> <span class="cnt">${esc(x.pr||'')} · ${esc(CUISINES[x.cu]||'')}</span>${editBtns}</div></div>`}
+      const stopMode=s.mode||mode;
+      const editBtns=PLAN_EDIT?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;align-items:center">
+        <select class="mode-sel" data-act="plstopmode" data-di="${di}" data-si="${si}">${modes.map(m=>`<option value="${m.v}" ${m.v===stopMode?'selected':''}>${m.t}</option>`).join('')}</select>
+        <button class="btn alt sm" data-act="plup" data-di="${di}" data-si="${si}">↑</button>
+        <button class="btn alt sm" data-act="pldn" data-di="${di}" data-si="${si}">↓</button>
+        <button class="btn red sm" data-act="plrm" data-di="${di}" data-si="${si}">✕</button>
+      </div>`:`<div class="cnt">${(modes.find(m=>m.v===stopMode)||{}).t||''}${s.go?' · '+esc(s.go):''}</div>`;
+      if(s.sid){const x=REG[s.sid]&&REG[s.sid].item;if(!x)return;if(/^(כן|מומלץ)/.test(x.adv||''))tix.push(x);
+        const dirUrl=x.ll?`https://www.google.com/maps/dir/?api=1&destination=${x.ll[0]},${x.ll[1]}&travelmode=${stopMode}`:'#';
+        h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div><b><a href="#" data-act="open" data-id="${x.id}">${x.em||''} ${esc(x.n)}</a></b> <span class="cnt ltr">${esc(x.e||'')}</span>
+        <div class="cnt">⏱️ כ-${durOf(x)} דק׳</div>
+        ${PLAN_EDIT?'':`<a class="btn alt sm" target="_blank" rel="noopener" href="${dirUrl}">ניווט</a>`}
+        ${editBtns}</div></div>`}
+      else if(s.lid){const x=REG[s.lid]&&REG[s.lid].item;if(!x)return;h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div>🍴 <b>צהריים</b>: <a href="#" data-act="open" data-id="${x.id}">${esc(x.n)}</a> <span class="cnt">${esc(x.pr||'')}</span>${editBtns}</div></div>`}
+      else if(s.did){const x=REG[s.did]&&REG[s.did].item;if(!x)return;h+=`<div class="stop"><div class="tm">${esc(s.time||'')}</div><div>🌙 <b>ערב</b>: <a href="#" data-act="open" data-id="${x.id}">${esc(x.n)}</a> <span class="cnt">${esc(x.pr||'')}</span>${editBtns}</div></div>`}
     });
     (d.notes||[]).forEach(n=>h+=`<div class="note" style="margin:6px 8px">${esc(n)}</div>`);
     h+='</div>';
   });
   const u=[...new Map(tix.map(x=>[x.id,x])).values()];
   if(u.length)h+=`<div class="sec">🎟️ להזמין מראש</div><div class="note r">${u.map(x=>`• <b>${esc(x.n)}</b> — ${esc(x.adv)}`).join('<br>')}</div>`;
-  out.innerHTML=h}
+  out.innerHTML=h;
+  // bind mode selects (change events)
+  $$('#pl-out [data-act=pldaymode]').forEach(sel=>{sel.onchange=()=>{const di=+sel.dataset.di;LASTPLAN.days[di].travelMode=sel.value;LS.s('plan',LASTPLAN);toast('עודכן אמצעי תחבורה ליום')}});
+  $$('#pl-out [data-act=plstopmode]').forEach(sel=>{sel.onchange=()=>{const di=+sel.dataset.di,si=+sel.dataset.si;if(LASTPLAN.days[di]&&LASTPLAN.days[di].stops[si]){LASTPLAN.days[di].stops[si].mode=sel.value;LS.s('plan',LASTPLAN);toast('עודכן אמצעי הגעה לעצירה')}}});
+  setTimeout(()=>{drawPlanOnMap(P,null)},100);
+}
 async function saveFile(name,text,mime){
   if(window.showSaveFilePicker){try{const ext='.'+name.split('.').pop();const hd=await showSaveFilePicker({suggestedName:name,types:[{description:'קובץ טקסט',accept:{[mime]:[ext]}}]});const w=await hd.createWritable();await w.write(new Blob(['﻿'+text],{type:mime}));await w.close();toast('הקובץ נשמר');return}catch(e){if(e&&e.name==='AbortError')return}}
   const nm=prompt('איך לקרוא לקובץ?',name);if(!nm)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+text],{type:mime}));a.download=nm;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);toast('הקובץ ירד למכשיר')}
@@ -2161,6 +2398,7 @@ function toggleFs(boxId){
     const ex=$('.fs-exit');if(ex)ex.remove();
     if(boxId==='#mapbox'&&MAP)setTimeout(()=>MAP.invalidateSize(),200);
     if(boxId==='#metrobox'&&MET)setTimeout(()=>MET.invalidateSize(),200);
+    if(boxId==='#planmap'&&PLAN_MAP)setTimeout(()=>PLAN_MAP.invalidateSize(),200);
   }else{
     box.classList.add('fs');
     const btn=document.createElement('button');btn.className='fs-exit';btn.textContent='✕ יציאה ממסך מלא';
@@ -2168,6 +2406,7 @@ function toggleFs(boxId){
     document.body.appendChild(btn);
     if(boxId==='#mapbox'&&MAP)setTimeout(()=>MAP.invalidateSize(),200);
     if(boxId==='#metrobox'&&MET)setTimeout(()=>MET.invalidateSize(),200);
+    if(boxId==='#planmap'&&PLAN_MAP)setTimeout(()=>PLAN_MAP.invalidateSize(),200);
   }
 }
 function doToday(){
@@ -2240,7 +2479,12 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(
   else if(act==='fav'){toggleFav(id)}else if(act==='hide')hideItem(id);else if(act==='unhide')unhideItem(id);else if(act==='delc')delCustom(id);
   else if(act==='addplace')openAddPlace();
   else if(act==='plcopy'&&LASTPLAN){navigator.clipboard&&navigator.clipboard.writeText(planText(LASTPLAN)).then(()=>toast('המסלול הועתק'))}
-  else if(act==='plsave'&&LASTPLAN){saveFile('ניו-יורק-מסלול.txt',planText(LASTPLAN),'text/plain')}
+  else if(act==='plsave'&&LASTPLAN){savePlanFile(LASTPLAN)}
+  else if(act==='plshare'&&LASTPLAN){sharePlan(LASTPLAN)}
+  else if(act==='plprint'){printPlanPdf()}
+  else if(act==='plmapall'&&LASTPLAN){drawPlanOnMap(LASTPLAN,null);toast('כל הימים על המפה')}
+  else if(act==='plmapday'&&LASTPLAN){drawPlanOnMap(LASTPLAN,+a.dataset.di);toast('יום '+(+a.dataset.di+1)+' על המפה')}
+  else if(act==='plmapfs'){const box=$('#planmap');if(!box)return;toggleFs('#planmap');setTimeout(()=>{if(PLAN_MAP)PLAN_MAP.invalidateSize()},250)}
   else if(act==='plsave-named'&&LASTPLAN){
     const name=prompt('שם למסלול השמור:', (LASTPLAN.o&&LASTPLAN.o.days?LASTPLAN.o.days+' ימים':'מסלול')+' — '+fmtDate(new Date()));
     if(!name)return;
@@ -2254,6 +2498,14 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(
   else if(act==='plrm'&&LASTPLAN){const di=+a.dataset.di,si=+a.dataset.si;if(!LASTPLAN.days[di])return;LASTPLAN.days[di].stops.splice(si,1);LS.s('plan',LASTPLAN);showPlan(LASTPLAN)}
   else if(act==='plup'&&LASTPLAN){const di=+a.dataset.di,si=+a.dataset.si;const st=LASTPLAN.days[di]&&LASTPLAN.days[di].stops;if(!st||si<=0)return;const t=st[si-1];st[si-1]=st[si];st[si]=t;LS.s('plan',LASTPLAN);showPlan(LASTPLAN)}
   else if(act==='pldn'&&LASTPLAN){const di=+a.dataset.di,si=+a.dataset.si;const st=LASTPLAN.days[di]&&LASTPLAN.days[di].stops;if(!st||si>=st.length-1)return;const t=st[si+1];st[si+1]=st[si];st[si]=t;LS.s('plan',LASTPLAN);showPlan(LASTPLAN)}
+  else if(act==='pldocadd'&&LASTPLAN){
+    const url=($('#pl-doc-url')&&$('#pl-doc-url').value||'').trim();
+    const desc=($('#pl-doc-desc')&&$('#pl-doc-desc').value||'').trim();
+    if(!url)return toast('הזינו קישור למסמך או לתמונה');
+    if(!LASTPLAN.docs)LASTPLAN.docs=[];
+    LASTPLAN.docs.push({url,desc});LS.s('plan',LASTPLAN);showPlan(LASTPLAN);toast('הקישור נוסף');
+  }
+  else if(act==='pldocrm'&&LASTPLAN){const di=+a.dataset.di;if(!LASTPLAN.docs)return;LASTPLAN.docs.splice(di,1);LS.s('plan',LASTPLAN);showPlan(LASTPLAN);toast('הקישור הוסר')}
 });
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){history.state&&history.state.m?history.back():closeDetail()}});
 window.addEventListener('popstate',()=>closeDetail());
