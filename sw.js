@@ -1,5 +1,5 @@
 /* NYC Guide Service Worker – offline shell + cache */
-const CACHE = 'nyc-guide-v20261117';
+const CACHE = 'nyc-guide-v20261117b';
 const ASSETS = [
   './',
   './index.html',

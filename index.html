@@ -1527,7 +1527,7 @@ const WX_CODES={0:["☀️","בהיר"],1:["🌤️","בהיר ברובו"],2:["
 })();
 
 'use strict';
-const VERSION='20261117-02',DATA_DATE='14/11/2026';
+const VERSION='20261117-05',DATA_DATE='14/11/2026';
 const $=(s,r)=>(r||document).querySelector(s);
 const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1714,7 +1714,7 @@ function buildShell(){
   $('#panes').innerHTML=TABS.map(t=>`<section class="pane" id="p-${t[0]}"></section>`).join('');
 }
 function go(id,noPush){if(!TABS.some(t=>t[0]===id))id='map';cur=id;$$('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===id));$$('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+id));
-  const b=$('.tab.on');if(b)b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});LS.s('tab',id);window.scrollTo(0,0);
+  const b=$('.tab.on');if(b)b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});LS.s('tab',id);try{window.scrollTo(0,0)}catch(e){}
   if(id==='map')setTimeout(initMap,50);if(id==='transit')setTimeout(initMetro,50);if(id==='info')loadWeather();
   if(!noPush)try{history.replaceState(null,'','#'+id)}catch(e){}}
 /* ================= מפה ================= */
@@ -2616,7 +2616,90 @@ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){history.state
 window.addEventListener('popstate',()=>closeDetail());
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b)go(b.dataset.tab)});
-$('#refresh').onclick=refreshAll;$('#instTop').onclick=doInstall;
+
+const MON_T=[[4,-3],[6,-2],[10,1],[16,7],[22,12],[27,18],[30,21],[29,21],[25,17],[18,10],[12,5],[6,0]];
+const PACK=['מעיל חם מאוד, כפפות, כובע וצעיף, מגפיים לא חלקים. שלג וקור — תכננו אטרקציות פנימיות ליד התצפיות.','מעיל חם, כפפות, כובע. קר ורוח חזקה במיוחד על הגשרים ובתצפיות.','מעיל קל + שכבות, מטרייה. אפשר קר בבקרים.','שכבות קלות, ג׳קט קל, מטרייה. אביב נעים אבל משתנה.','בגדים קלים ושכבה לערב. נעים ומומלץ לטייל.','חם. בגדים קלים, כובע, קרם הגנה, בקבוק מים.','חם ולח מאוד. בגדים נושמים, קרם הגנה, ובמבנים — מיזוג חזק, קחו שכבה.','חם ולח. כמו יולי, גם סופות רעמים.','נעים — הזמן הטוב ביותר. שכבות קלות וג׳קט לערב.','סתיו נעים, שכבות וג׳קט. מטרייה.','קר מתחיל: מעיל, צעיף, כפפות. החושך יורד ב-16:30 בערך.','קר: מעיל חם, כפפות, כובע. עונת החגים — עמוס.'];
+let WX=LS.g('wx',null),FX=LS.g('fx',null);
+function buildInfo(){
+  const mo=new Date().getMonth();
+  $('#p-info').innerHTML=hero('מידע לתייר','מזג אוויר, שעון, שער דולר, טלפונים חשובים והכנות לטיסה.','ℹ️','#0369a1','#0ea5e9')+
+  `<div class="sec">🌤️ מזג אוויר בניו יורק</div><div id="wx"></div>
+  <div class="sec">🕐 שעון</div><div class="clk"><div><small>ניו יורק</small><b id="clk-ny">--:--</b><small id="clk-nyd"></small></div><div><small>ישראל</small><b id="clk-il">--:--</b><small id="clk-ild"></small></div><div><small>הפרש</small><b id="clk-df">—</b><small>שעות</small></div></div>
+  <div class="sec">💵 דולר ← שקל</div><div class="card" style="padding:10px"><div class="form"><label>סכום בדולרים<input class="fld" id="fx-usd" type="number" inputmode="decimal" value="100"></label><label>בשקלים (בערך)<input class="fld" id="fx-ils" readonly></label></div><div class="cnt" id="fx-note"></div></div>
+  <div class="sec">🧾 מחשבון טיפ</div><div class="card" style="padding:10px"><div class="form"><label>סכום החשבון ($)<input class="fld" id="tp-b" type="number" inputmode="decimal" value="80"></label><label>מספר סועדים<input class="fld" id="tp-n" type="number" min="1" value="2"></label><label>אחוז טיפ<select class="fld" id="tp-p"><option>18</option><option selected>20</option><option>22</option><option>25</option></select></label></div><div id="tp-o" style="margin-top:8px;font-size:15px"></div></div>
+  <div class="sec">🆘 טלפונים חשובים</div><div class="card" style="padding:10px;line-height:2"><div>🚨 משטרה, כיבוי ואמבולנס: <a class="ltr" href="tel:911">911</a></div><div>🏙️ מוקד העירייה (לא חירום): <a class="ltr" href="tel:311">311</a></div><div>✡️ הקונסוליה הכללית של ישראל בניו יורק: <span class="ltr">800 Second Ave, New York, NY 10017</span> · <a class="ltr" href="tel:+12124995300">212-499-5300</a> · <a class="ltr" target="_blank" rel="noopener" href="https://embassies.gov.il/newyork">embassies.gov.il/newyork</a> <small>(בדקו פרטים עדכניים באתר)</small></div><div>📞 חיוג לישראל מארה״ב: <span class="ltr">+972</span> (בלי 0 ראשון). לארה״ב מישראל: <span class="ltr">+1</span></div></div>
+  <div class="sec">🧳 מה לארוז (${['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][mo]})</div><div class="note">טמפרטורה ממוצעת בחודש: ${MON_T[mo][1]}° עד ${MON_T[mo][0]}°C. ${esc(PACK[mo])}</div>
+  <div class="sec">✅ לפני שנוסעים</div><div class="note g">• ESTA מאושר (אתר רשמי בלבד: esta.cbp.dhs.gov)<br>• דרכון ביומטרי בתוקף<br>• ביטוח בריאות וביטול טיול<br>• כרטיסים מראש לפסל החירות, תצפיות והצגות<br>• כרטיס אשראי ללא עמלות המרה, ומעט מזומן<br>• eSIM או חבילת גלישה<br>• מטען ומתאם (120V, תקע שטוח)<br>• נעליים נוחות</div>
+  <div class="sec">📲 התקנה כאפליקציה</div><div class="card" style="padding:10px"><button class="btn tx" id="inst" style="display:none">📲 התקן במכשיר</button><div class="cnt">באייפון: לחצו על ״שיתוף״ ואז ״הוסף למסך הבית״. באנדרואיד/Chrome: תפריט ⋮ ואז ״התקן אפליקציה״. אחרי ההתקנה האפליקציה פועלת גם בלי אינטרנט (חלק מהתוכן, כמו המפה והתמונות, ידרוש חיבור).</div></div>
+  
+  <div class="sec">⭐ הדירוגים וההערות שלי</div><div class="card" style="padding:10px" id="my-ratings"></div>
+  <div class="sec">👤 הפרופיל שלי ושיתוף</div>
+  <div class="card" style="padding:10px">
+    <div class="cnt" style="margin-bottom:8px">שמרו את המועדפים, ההערות, הדירוגים והמסלולים — ושלחו לחבר כ«ניו יורק מותאם אישית».</div>
+    <div class="share-bar">
+      <button class="btn" data-act="export">📤 ייצוא / שיתוף הפרופיל</button>
+      <button class="btn alt" data-act="shareapp">🔗 קישור לאפליקציה</button>
+      <button class="btn alt" data-act="shareloc">📍 שלח את המיקום שלי</button>
+    </div>
+    <div style="margin-top:8px"><label class="cnt">ייבוא מקובץ JSON<input type="file" id="import-file" accept="application/json,.json" style="display:block;margin-top:4px"></label></div>
+  </div>
+<div class="sec">📄 על האפליקציה</div><div class="note">גרסה ${VERSION} · תוכן מעודכן ל-${DATA_DATE}. תמונות מ-Wikipedia / Wikimedia Commons (בעלי הזכויות המקוריים). המידע נאסף ממקורות רשמיים ומאתרי האטרקציות; מחירים ושעות פתיחה משתנים — מומלץ לאמת באתר של כל מקום. לחצו על ↻ למעלה לריענון.</div>`;
+  const cv=()=>{const r=FX&&FX.r;$('#fx-ils').value=r?fmtNum(((+$('#fx-usd').value||0)*r).toFixed(0)):'';$('#fx-note').textContent=r?`שער: 1$ = ${r.toFixed(3)}₪ (${FX.d||''}). בפועל תחול עמלת כרטיס האשראי.`:'שער לא זמין כרגע. לחצו על ↻ כשיש חיבור לאינטרנט.'};
+  $('#fx-usd').oninput=cv;cv();
+  const tp=()=>{const b=+$('#tp-b').value||0,n=+$('#tp-n').value||1,p=+$('#tp-p').value;const tip=b*p/100,tot=b+tip;$('#tp-o').innerHTML=`טיפ: <b>$${tip.toFixed(2)}</b> · סה״כ: <b>$${tot.toFixed(2)}</b> · לכל סועד: <b>$${(tot/n).toFixed(2)}</b> <small>(כ-${fmtNum((tot/n*(FX&&FX.r||0)).toFixed(0))}₪ לסועד)</small>`};
+  ['#tp-b','#tp-n','#tp-p'].forEach(s=>$(s).oninput=tp);tp();
+  renderWx();tickClock()}
+function tickClock(){const f=(tz)=>new Intl.DateTimeFormat('he-IL',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());const d=(tz)=>new Intl.DateTimeFormat('he-IL',{timeZone:tz,weekday:'long',day:'2-digit',month:'2-digit'}).format(new Date());
+  const ny=$('#clk-ny');if(!ny)return;ny.textContent=f('America/New_York');$('#clk-il').textContent=f('Asia/Jerusalem');$('#clk-nyd').textContent=d('America/New_York');$('#clk-ild').textContent=d('Asia/Jerusalem');
+  const off=tz=>{const p=new Intl.DateTimeFormat('en-US',{timeZone:tz,timeZoneName:'shortOffset'}).formatToParts(new Date()).find(x=>x.type==='timeZoneName').value.replace('GMT','');return +(p.split(':')[0])||0};
+  try{$('#clk-df').textContent=Math.abs(off('Asia/Jerusalem')-off('America/New_York'))}catch(e){}}
+setInterval(tickClock,20000);
+async function loadWeather(force){
+  if(!navigator.onLine&&WX){renderWx();return}
+  if(WX&&!force&&Date.now()-WX.ts<30*60000){renderWx();return}
+  try{const j=await jf('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FNew_York&forecast_days=16');WX={cur:j.current,d:j.daily,ts:Date.now()};LS.s('wx',WX)}catch(e){}
+  renderWx()}
+function renderWx(){const el=$('#wx');if(!el)return;
+  if(!WX){el.innerHTML='<div class="note">תחזית זמינה כשיש חיבור לאינטרנט. לחצו על ↻ לנסות שוב.</div>';return}
+  const c=WX.cur,w=WX_CODES[c.weather_code]||['🌡️','—'],d=WX.d;const f=x=>Math.round(x*9/5+32);const day=i=>DAYS[new Date(d.time[i]+'T12:00:00').getDay()];
+  const tm=s=>s?s.slice(11,16):'';
+  el.innerHTML=`<div class="card now"><div class="big">${w[0]}</div><div><div class="t">${Math.round(c.temperature_2m)}°C <small style="font-size:14px;font-weight:400">(${f(c.temperature_2m)}°F)</small></div><div>${w[1]} · מורגש ${Math.round(c.apparent_temperature)}° · לחות ${c.relative_humidity_2m}% · רוח ${Math.round(c.wind_speed_10m)} קמ״ש</div><div class="cnt">זריחה ${tm(d.sunrise[0])} · שקיעה ${tm(d.sunset[0])} (שעון ניו יורק)</div></div></div>
+  <div class="wx" style="margin-top:8px">${d.time.map((t,i)=>{const x=WX_CODES[d.weather_code[i]]||['🌡️','—'];return `<div class="d"><b>${i?day(i).replace('יום ',''):'היום'}</b><div class="e">${x[0]}</div><div>${Math.round(d.temperature_2m_max[i])}° / ${Math.round(d.temperature_2m_min[i])}°</div><small>🌧️ ${d.precipitation_probability_max[i]==null?'—':d.precipitation_probability_max[i]+'%'}</small></div>`}).join('')}</div><div class="cnt">עודכן ${new Date(WX.ts).toLocaleString('he-IL')} · מקור: Open-Meteo</div>`;
+  $$('[data-wxmini]').forEach(x=>x.textContent=`${w[0]} ${Math.round(c.temperature_2m)}°`)}
+async function loadFx(){try{const j=await jf('https://api.frankfurter.app/latest?from=USD&to=ILS');if(j&&j.rates&&j.rates.ILS){FX={r:j.rates.ILS,d:j.date,ts:Date.now()};LS.s('fx',FX);const u=$('#fx-usd');if(u)u.dispatchEvent(new Event('input'))}}catch(e){}}
+
+let refreshing=false;
+async function refreshAll(){
+  if(refreshing)return;refreshing=true;
+  const b=$('#refresh');if(b)b.classList.add('spin');
+  try{PH={};LS.s('ph',PH)}catch(e){}
+  try{if('serviceWorker' in navigator){const rg=await navigator.serviceWorker.getRegistration();if(rg)await rg.update()}}catch(e){}
+  try{await Promise.all([loadWeather(true),loadFx()])}catch(e){}
+  try{renderEvents()}catch(e){}
+  try{refreshLists()}catch(e){}
+  try{const open=$('#modal.on');if(open&&window._curId)openDetail(window._curId)}catch(e){}
+  try{$$('.pane.on [data-pk]').forEach(el=>{const im=el.querySelector('img');if(im)im.remove();attach(el)})}catch(e){}
+  try{
+    const t=new Date();LS.s('last',t.getTime());
+    const last=$('#last');if(last)last.textContent=`עודכן: ${fmtDate(t)} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  }catch(e){}
+  if(b)b.classList.remove('spin');
+  refreshing=false;
+  toast('העדכון הושלם: מזג אוויר, שער דולר, תמונות ואירועים');
+}
+let deferred;
+try{
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault();deferred=e;
+    const b=$('#inst');if(b)b.style.display='inline-flex';
+    const hb=$('#instTop');if(hb)hb.style.display='inline-flex';
+  });
+}catch(e){}
+function doInstall(){if(deferred){deferred.prompt();deferred=null}else go('info')}
+
+try{$('#refresh').onclick=refreshAll}catch(e){}
+try{$('#instTop').onclick=doInstall}catch(e){}
+
 try{
   buildShell();
   const builders=[buildMapPane,buildSites,buildHotels,buildTransit,buildRest,buildFood,buildShop,buildMarkets,buildTips,buildPlan,buildEvents,buildInfo];
