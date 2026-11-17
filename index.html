@@ -1544,7 +1544,7 @@ const WX_CODES={0:["☀️","בהיר"],1:["🌤️","בהיר ברובו"],2:["
 })();
 
 'use strict';
-const VERSION='20261116-01',DATA_DATE='14/11/2026';
+const VERSION='20261117-01',DATA_DATE='14/11/2026';
 const $=(s,r)=>(r||document).querySelector(s);
 const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1612,20 +1612,23 @@ function tagsOf(r){const i=r.item,t=[];
   else if(r.type==='custom'){t.push('<span class="tag r">שלי</span>')}
   return t.join('')}
 const SHOP_T={street:'רחוב קניות',dept:'חנות כלבו',mall:'קניון',outlet:'אאוטלט',specialty:'חנות מיוחדת'};
-function cardHTML(id){const r=REG[id];if(!r)return'';const i=r.item,[c1,c2]=grad(r);const fav=FAV.has(id);
-  const badge=r.type==='hotel'?'★'.repeat(i.st):areaTxt(r);
+function cardHTML(id){const r=REG[id];if(!r)return'';const i=applyOverrides(r.item,id),[c1,c2]=grad(r);const fav=FAV.has(id);const um=metaOf(id);
+  const badge=r.type==='hotel'?'★'.repeat(i.st||0):areaTxt(r);
   const free=i.free?'<span class="free">חינם</span>':'';
   const nav=r.type==='food'?'':`<a class="btn alt" target="_blank" rel="noopener" href="${mapsPin(i)}">📍 ניווט</a>`;
   const extra=r.type==='custom'?`<button class="btn red sm" data-act="delc" data-id="${id}">מחק</button>`:`<button class="btn alt sm" data-act="hide" data-id="${id}" title="הסתר זמנית">🙈</button>`;
   const hid=HID.has(id)?`<button class="btn tx sm" data-act="unhide" data-id="${id}">החזר</button>`:'';
-  return `<article class="card item" data-id="${id}"><div class="ph" data-pk="${id}" style="--c1:${c1};--c2:${c2}">${i.em||'📍'}${badge?`<span class="badge">${esc(badge)}</span>`:''}${free}</div>
-  <div class="bd"><h3>${esc(i.n)}</h3>${i.e?`<div class="en">${esc(i.e)}</div>`:''}<div>${esc(shortOf(r))}</div><div class="tags">${tagsOf(r)}</div>
-  <div class="acts"><button class="btn grow" data-act="open" data-id="${id}">פרטים</button>${nav}<button class="btn alt sm" data-act="fav" data-id="${id}" title="מועדפים">${fav?'★':'☆'}</button><button class="edit-pencil" data-act="edit" data-id="${id}" title="ערוך">✏️</button>${metaOf(id).rate?`<span class="stars" title="הדירוג שלך">${'★'.repeat(metaOf(id).rate)}</span>`:''}${extra}${hid}</div></div></article>`}
+  const myRate=um.rate?`<div class="stars" style="font-size:14px" title="הדירוג שלך">הדירוג שלי: ${'★'.repeat(um.rate)}${'☆'.repeat(5-um.rate)}</div>`:`<div class="stars-rate" style="margin:2px 0">${[1,2,3,4,5].map(n=>`<button type="button" data-act="rate" data-id="${id}" data-n="${n}" title="דרג ${n}">☆</button>`).join('')}</div>`;
+  const myNote=um.note?`<div class="cnt" style="font-style:italic">📝 ${esc(um.note.slice(0,80))}${um.note.length>80?'…':''}</div>`:'';
+  return `<article class="card item" data-id="${id}"><div class="ph" data-pk="${id}" style="--c1:${c1};--c2:${c2}">${i.em||'📍'}${badge?`<span class="badge">${esc(badge)}</span>`:''}${free}${um.rate?`<span class="badge" style="left:8px;right:auto;background:#f5a623">★ ${um.rate}</span>`:''}</div>
+  <div class="bd"><h3>${esc(i.n)}</h3>${i.e?`<div class="en">${esc(i.e)}</div>`:''}<div>${esc(shortOf({type:r.type,item:i}))}</div><div class="tags">${tagsOf({type:r.type,item:i})}</div>
+  ${myRate}${myNote}
+  <div class="acts"><button class="btn grow" data-act="open" data-id="${id}">פרטים</button>${nav}<button class="btn alt sm" data-act="fav" data-id="${id}" title="מועדפים">${fav?'★':'☆'}</button><button class="edit-pencil" data-act="edit" data-id="${id}" title="ערוך">✏️</button>${extra}${hid}</div></div></article>`}
 /* ---------- list views with filters ---------- */
 function mountList(cfg){
-  const root=$(cfg.el),st={q:'',g:{},t:{},fav:false,hid:false};
+  const root=$(cfg.el),st={q:'',g:{},t:{},fav:false,hid:false,rated:false,noted:false};
   root.innerHTML=`<div class="filt"><div class="row"><input type="search" placeholder="חיפוש…" data-q>${cfg.groups.map(g=>`<div class="row" data-g="${g.key}"><b class="cnt">${g.label}:</b><button class="chip on" data-v="">הכל</button>${g.opts.map(o=>`<button class="chip" data-v="${esc(o[0])}">${esc(o[1])}</button>`).join('')}</div>`).join('')}
-  <div class="row">${(cfg.toggles||[]).map(t=>`<button class="chip" data-t="${t.key}">${t.label}</button>`).join('')}<button class="chip" data-fav>★ המועדפים שלי</button><button class="chip" data-hid>🙈 מוסתרים (<span data-hn>0</span>)</button><button class="chip" data-reset>נקה סינון</button><span class="cnt" data-cnt></span></div></div></div>
+  <div class="row">${(cfg.toggles||[]).map(t=>`<button class="chip" data-t="${t.key}">${t.label}</button>`).join('')}<button class="chip" data-fav>★ המועדפים שלי</button><button class="chip" data-rated>⭐ שדירגתי</button><button class="chip" data-noted>📝 עם הערה</button><button class="chip" data-hid>🙈 מוסתרים (<span data-hn>0</span>)</button><button class="chip" data-reset>נקה סינון</button><span class="cnt" data-cnt></span></div></div></div>
   ${cfg.before||''}<div class="grid" data-grid></div>${cfg.after||''}`;
   const grid=$('[data-grid]',root);
   function ids(){return typeof cfg.ids==='function'?cfg.ids():cfg.ids}
@@ -1633,7 +1636,7 @@ function mountList(cfg){
     const q=st.q.trim().toLowerCase();let n=0;const out=[];
     ids().forEach(id=>{const r=REG[id];if(!r)return;const i=r.item;
       const hidden=HID.has(id);if(hidden&&!st.hid)return;if(!hidden&&st.hid&&st.hidOnly)return;
-      if(st.fav&&!FAV.has(id))return;
+      if(st.fav&&!FAV.has(id))return;if(st.rated&&!(metaOf(id).rate))return;if(st.noted&&!(metaOf(id).note))return;
       if(q){const hay=((i.n||'')+' '+(i.e||'')+' '+(i.d||'')+' '+(i.s||'')+' '+(i.ad||'')+' '+((i.ing||[]).join(' '))+' '+(i.why||'')).toLowerCase();if(!hay.includes(q))return}
       for(const g of cfg.groups){const v=st.g[g.key];if(v&&!g.test(i,v))return}
       for(const t of (cfg.toggles||[])){if(st.t[t.key]&&!t.test(i))return}
@@ -1645,9 +1648,11 @@ function mountList(cfg){
     lazyPhotos(grid)}
   root.addEventListener('input',e=>{if(e.target.matches('[data-q]')){st.q=e.target.value;apply()}});
   root.addEventListener('click',e=>{const b=e.target.closest('button.chip');if(!b)return;
-    if(b.hasAttribute('data-reset')){st.q='';st.g={};st.t={};st.fav=false;st.hid=false;$('[data-q]',root).value='';$$('.chip',root).forEach(c=>c.classList.remove('on'));$$('[data-g]',root).forEach(r=>$('.chip',r).classList.add('on'));apply();return}
+    if(b.hasAttribute('data-reset')){st.q='';st.g={};st.t={};st.fav=false;st.hid=false;st.rated=false;st.noted=false;$('[data-q]',root).value='';$$('.chip',root).forEach(c=>c.classList.remove('on'));$$('[data-g]',root).forEach(r=>$('.chip',r).classList.add('on'));apply();return}
     if(b.dataset.t){st.t[b.dataset.t]=!st.t[b.dataset.t];b.classList.toggle('on',!!st.t[b.dataset.t])}
     else if(b.hasAttribute('data-fav')){st.fav=!st.fav;b.classList.toggle('on',st.fav)}
+    else if(b.hasAttribute('data-rated')){st.rated=!st.rated;b.classList.toggle('on',st.rated)}
+    else if(b.hasAttribute('data-noted')){st.noted=!st.noted;b.classList.toggle('on',st.noted)}
     else if(b.hasAttribute('data-hid')){st.hid=!st.hid;b.classList.toggle('on',st.hid)}
     else{const row=b.closest('[data-g]');if(!row)return;$$('.chip',row).forEach(c=>c.classList.remove('on'));b.classList.add('on');st.g[row.dataset.g]=b.dataset.v}
     apply()});
@@ -2290,117 +2295,36 @@ const EV_K={holiday:'חגים',show:'מופעים',culture:'תרבות',sport:'�
 let evK='',evPast=false;
 function buildEvents(){
   $('#p-events').innerHTML=hero('אירועי תרבות, קונצרטים וספורט','מה קורה בעיר בקרוב — חגים, מופעים וספורט. מתעדכן לפי התאריך של היום.','🎭','#be123c','#f43f5e')+'<div id="ev-f"></div><div id="ev-l"></div><div class="sec">🏀 ספורט</div><div class="grid" id="ev-s"></div><div class="sec">🎻 אולמות ומופעים</div><div class="grid" id="ev-v"></div><div class="sec">🔗 לוחות אירועים רשמיים</div><div class="card" style="padding:10px"><a class="btn alt" target="_blank" rel="noopener" href="https://www.nycgo.com/events">NYC Official Events</a> <a class="btn alt" target="_blank" rel="noopener" href="https://www.timeout.com/newyork/things-to-do">Time Out New York</a> <a class="btn alt" target="_blank" rel="noopener" href="https://www.ticketmaster.com">Ticketmaster</a> <a class="btn alt" target="_blank" rel="noopener" href="https://www.tdf.org/tkts">TKTS — Broadway בהנחה</a></div><div class="note">הרשימה נבדקה ב-${DATA_DATE}. לתאריכים, מחירים וכרטיסים עדכניים לחצו על הקישור של כל אירוע.</div>';
-  const f=$('#ev-f');f.innerHTML=`<div class="filt"><div class="row"><button class="chip on" data-k="">הכל</button>${Object.entries(EV_K).map(k=>`<button class="chip" data-k="${k[0]}">${k[1]}</button>`).join('')}<button class="chip" data-past>הצג אירועים שעברו</button></div></div>`;
+  const f=$('#ev-f');f.innerHTML=`<div class="filt"><div class="row"><input type="search" id="ev-q" placeholder="חיפוש אירוע / מקום…" style="flex:1;min-width:140px" class="fld"></div><div class="row"><button class="chip on" data-k="">הכל</button>${Object.entries(EV_K).map(k=>`<button class="chip" data-k="${k[0]}">${k[1]}</button>`).join('')}<button class="chip" data-past>הצג אירועים שעברו</button></div></div>`;
+  const eq=$('#ev-q');if(eq)eq.oninput=()=>renderEvents();
   f.onclick=e=>{const b=e.target.closest('.chip');if(!b)return;if('past' in b.dataset){evPast=!evPast;b.classList.toggle('on',evPast)}else{$$('[data-k]',f).forEach(c=>c.classList.remove('on'));b.classList.add('on');evK=b.dataset.k}renderEvents()};
   $('#ev-s').innerHTML=SPORTS.map(s=>`<div class="card" style="padding:10px"><h3 style="margin:0">${s.em} ${esc(s.t)}</h3><div class="cnt ltr">${esc(s.v)}</div><div style="font-size:13.5px;margin:4px 0">${esc(s.d)}</div><a class="btn alt sm" target="_blank" rel="noopener" href="${s.url}">לוח משחקים וכרטיסים</a></div>`).join('');
   $('#ev-v').innerHTML=VENUES.map(v=>`<div class="card" style="padding:10px"><h3 style="margin:0">🎼 ${esc(v.t)}</h3><div class="cnt ltr">${esc(v.e)}</div><div class="kv" style="font-size:13px">${kv('📍',`<span class="ltr">${esc(v.ad)}</span>`)}${kv('📞',telHTML(v.ph))}</div><a class="btn alt sm" target="_blank" rel="noopener" href="${v.url}">תוכנית עדכנית</a></div>`).join('');
   renderEvents()}
-function renderEvents(){const l=EVENTS.map(e=>({e,s:evStatus(e)})).filter(x=>(evPast||x.s[0]!=='past')&&(!evK||x.e.k===evK)).sort((a,b)=>new Date(a.e.s)-new Date(b.e.s));
+function renderEvents(){
+  const q=(($('#ev-q')&&$('#ev-q').value)||'').trim().toLowerCase();
+  const l=EVENTS.map(e=>({e,s:evStatus(e)})).filter(x=>{
+    if(!evPast&&x.s[0]==='past')return false;
+    if(evK&&x.e.k!==evK)return false;
+    if(q){const hay=(x.e.t+' '+x.e.d+' '+x.e.v+' '+(x.e.pr||'')).toLowerCase();if(!hay.includes(q))return false}
+    return true;
+  }).sort((a,b)=>new Date(a.e.s)-new Date(b.e.s));
   const fd=d=>{const x=new Date(d+'T00:00:00');return fmtDate(x)};
-  $('#ev-l').innerHTML=l.length?`<div class="grid">${l.map(x=>`<div class="card" style="padding:10px"><div style="display:flex;justify-content:space-between;gap:6px;align-items:start"><h3 style="margin:0">${x.e.em} ${esc(x.e.t)}</h3><span class="pill" style="background:${x.s[0]==='now'?'#dcfce7;color:#14532d':x.s[0]==='soon'?'#fff4cc;color:#6b4e00':'#eee;color:#555'}">${esc(x.s[1])}</span></div><div class="cnt">📅 ${fd(x.e.s)}${x.e.e!==x.e.s?' – '+fd(x.e.e):''} · ${esc(EV_K[x.e.k]||'')}</div><div class="cnt ltr" style="text-align:right">📍 ${esc(x.e.v)}</div><div style="font-size:13.5px;margin:4px 0">${esc(x.e.d)}</div><div class="cnt">💲 ${esc(x.e.pr)}</div><a class="btn alt sm" target="_blank" rel="noopener" href="${x.e.url}">פרטים וכרטיסים</a></div>`).join('')}</div>`:'<div class="empty">אין אירועים מתאימים כרגע.</div>'}
-/* ================= מידע לתייר ================= */
-const MON_T=[[4,-3],[6,-2],[10,1],[16,7],[22,12],[27,18],[30,21],[29,21],[25,17],[18,10],[12,5],[6,0]];
-const PACK=['מעיל חם מאוד, כפפות, כובע וצעיף, מגפיים לא חלקים. שלג וקור — תכננו אטרקציות פנימיות ליד התצפיות.','מעיל חם, כפפות, כובע. קר ורוח חזקה במיוחד על הגשרים ובתצפיות.','מעיל קל + שכבות, מטרייה. אפשר קר בבקרים.','שכבות קלות, ג׳קט קל, מטרייה. אביב נעים אבל משתנה.','בגדים קלים ושכבה לערב. נעים ומומלץ לטייל.','חם. בגדים קלים, כובע, קרם הגנה, בקבוק מים.','חם ולח מאוד. בגדים נושמים, קרם הגנה, ובמבנים — מיזוג חזק, קחו שכבה.','חם ולח. כמו יולי, גם סופות רעמים.','נעים — הזמן הטוב ביותר. שכבות קלות וג׳קט לערב.','סתיו נעים, שכבות וג׳קט. מטרייה.','קר מתחיל: מעיל, צעיף, כפפות. החושך יורד ב-16:30 בערך.','קר: מעיל חם, כפפות, כובע. עונת החגים — עמוס.'];
-let WX=LS.g('wx',null),FX=LS.g('fx',null);
-function buildInfo(){
-  const mo=new Date().getMonth();
-  $('#p-info').innerHTML=hero('מידע לתייר','מזג אוויר, שעון, שער דולר, טלפונים חשובים והכנות לטיסה.','ℹ️','#0369a1','#0ea5e9')+
-  `<div class="sec">🌤️ מזג אוויר בניו יורק</div><div id="wx"></div>
-  <div class="sec">🕐 שעון</div><div class="clk"><div><small>ניו יורק</small><b id="clk-ny">--:--</b><small id="clk-nyd"></small></div><div><small>ישראל</small><b id="clk-il">--:--</b><small id="clk-ild"></small></div><div><small>הפרש</small><b id="clk-df">—</b><small>שעות</small></div></div>
-  <div class="sec">💵 דולר ← שקל</div><div class="card" style="padding:10px"><div class="form"><label>סכום בדולרים<input class="fld" id="fx-usd" type="number" inputmode="decimal" value="100"></label><label>בשקלים (בערך)<input class="fld" id="fx-ils" readonly></label></div><div class="cnt" id="fx-note"></div></div>
-  <div class="sec">🧾 מחשבון טיפ</div><div class="card" style="padding:10px"><div class="form"><label>סכום החשבון ($)<input class="fld" id="tp-b" type="number" inputmode="decimal" value="80"></label><label>מספר סועדים<input class="fld" id="tp-n" type="number" min="1" value="2"></label><label>אחוז טיפ<select class="fld" id="tp-p"><option>18</option><option selected>20</option><option>22</option><option>25</option></select></label></div><div id="tp-o" style="margin-top:8px;font-size:15px"></div></div>
-  <div class="sec">🆘 טלפונים חשובים</div><div class="card" style="padding:10px;line-height:2"><div>🚨 משטרה, כיבוי ואמבולנס: <a class="ltr" href="tel:911">911</a></div><div>🏙️ מוקד העירייה (לא חירום): <a class="ltr" href="tel:311">311</a></div><div>✡️ הקונסוליה הכללית של ישראל בניו יורק: <span class="ltr">800 Second Ave, New York, NY 10017</span> · <a class="ltr" href="tel:+12124995300">212-499-5300</a> · <a class="ltr" target="_blank" rel="noopener" href="https://embassies.gov.il/newyork">embassies.gov.il/newyork</a> <small>(בדקו פרטים עדכניים באתר)</small></div><div>📞 חיוג לישראל מארה״ב: <span class="ltr">+972</span> (בלי 0 ראשון). לארה״ב מישראל: <span class="ltr">+1</span></div></div>
-  <div class="sec">🧳 מה לארוז (${['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][mo]})</div><div class="note">טמפרטורה ממוצעת בחודש: ${MON_T[mo][1]}° עד ${MON_T[mo][0]}°C. ${esc(PACK[mo])}</div>
-  <div class="sec">✅ לפני שנוסעים</div><div class="note g">• ESTA מאושר (אתר רשמי בלבד: esta.cbp.dhs.gov)<br>• דרכון ביומטרי בתוקף<br>• ביטוח בריאות וביטול טיול<br>• כרטיסים מראש לפסל החירות, תצפיות והצגות<br>• כרטיס אשראי ללא עמלות המרה, ומעט מזומן<br>• eSIM או חבילת גלישה<br>• מטען ומתאם (120V, תקע שטוח)<br>• נעליים נוחות</div>
-  <div class="sec">📲 התקנה כאפליקציה</div><div class="card" style="padding:10px"><button class="btn tx" id="inst" style="display:none">📲 התקן במכשיר</button><div class="cnt">באייפון: לחצו על ״שיתוף״ ואז ״הוסף למסך הבית״. באנדרואיד/Chrome: תפריט ⋮ ואז ״התקן אפליקציה״. אחרי ההתקנה האפליקציה פועלת גם בלי אינטרנט (חלק מהתוכן, כמו המפה והתמונות, ידרוש חיבור).</div></div>
-  <div class="sec">👤 הפרופיל שלי ושיתוף</div>
-  <div class="card" style="padding:10px">
-    <div class="cnt" style="margin-bottom:8px">שמרו את המועדפים, ההערות, הדירוגים והמסלולים — ושלחו לחבר כ«ניו יורק מותאם אישית».</div>
-    <div class="share-bar">
-      <button class="btn" data-act="export">📤 ייצוא / שיתוף הפרופיל</button>
-      <button class="btn alt" data-act="shareapp">🔗 קישור לאפליקציה</button>
-      <button class="btn alt" data-act="shareloc">📍 שלח את המיקום שלי</button>
-    </div>
-    <div style="margin-top:8px"><label class="cnt">ייבוא מקובץ JSON<input type="file" id="import-file" accept="application/json,.json" style="display:block;margin-top:4px"></label></div>
-  </div>
-  <div class="sec">📄 על האפליקציה</div><div class="note">גרסה ${VERSION} · תוכן מעודכן ל-${DATA_DATE}. תמונות מ-Wikipedia / Wikimedia Commons (בעלי הזכויות המקוריים). המידע נאסף ממקורות רשמיים ומאתרי האטרקציות; מחירים ושעות פתיחה משתנים — מומלץ לאמת באתר של כל מקום. לחצו על ↻ למעלה לריענון.</div>`;
-  const cv=()=>{const r=FX&&FX.r;$('#fx-ils').value=r?fmtNum(((+$('#fx-usd').value||0)*r).toFixed(0)):'';$('#fx-note').textContent=r?`שער: 1$ = ${r.toFixed(3)}₪ (${FX.d||''}). בפועל תחול עמלת כרטיס האשראי.`:'שער לא זמין כרגע. לחצו על ↻ כשיש חיבור לאינטרנט.'};
-  $('#fx-usd').oninput=cv;cv();
-  const tp=()=>{const b=+$('#tp-b').value||0,n=+$('#tp-n').value||1,p=+$('#tp-p').value;const tip=b*p/100,tot=b+tip;$('#tp-o').innerHTML=`טיפ: <b>$${tip.toFixed(2)}</b> · סה״כ: <b>$${tot.toFixed(2)}</b> · לכל סועד: <b>$${(tot/n).toFixed(2)}</b> <small>(כ-${fmtNum((tot/n*(FX&&FX.r||0)).toFixed(0))}₪ לסועד)</small>`};
-  ['#tp-b','#tp-n','#tp-p'].forEach(s=>$(s).oninput=tp);tp();
-  renderWx();tickClock()}
-function tickClock(){const f=(tz)=>new Intl.DateTimeFormat('he-IL',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());const d=(tz)=>new Intl.DateTimeFormat('he-IL',{timeZone:tz,weekday:'long',day:'2-digit',month:'2-digit'}).format(new Date());
-  const ny=$('#clk-ny');if(!ny)return;ny.textContent=f('America/New_York');$('#clk-il').textContent=f('Asia/Jerusalem');$('#clk-nyd').textContent=d('America/New_York');$('#clk-ild').textContent=d('Asia/Jerusalem');
-  const off=tz=>{const p=new Intl.DateTimeFormat('en-US',{timeZone:tz,timeZoneName:'shortOffset'}).formatToParts(new Date()).find(x=>x.type==='timeZoneName').value.replace('GMT','');return +(p.split(':')[0])||0};
-  try{$('#clk-df').textContent=Math.abs(off('Asia/Jerusalem')-off('America/New_York'))}catch(e){}}
-setInterval(tickClock,20000);
-async function loadWeather(force){
-  if(!navigator.onLine&&WX){renderWx();return}
-  if(WX&&!force&&Date.now()-WX.ts<30*60000){renderWx();return}
-  try{const j=await jf('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FNew_York&forecast_days=16');WX={cur:j.current,d:j.daily,ts:Date.now()};LS.s('wx',WX)}catch(e){}
-  renderWx()}
-function renderWx(){const el=$('#wx');if(!el)return;
-  if(!WX){el.innerHTML='<div class="note">תחזית זמינה כשיש חיבור לאינטרנט. לחצו על ↻ לנסות שוב.</div>';return}
-  const c=WX.cur,w=WX_CODES[c.weather_code]||['🌡️','—'],d=WX.d;const f=x=>Math.round(x*9/5+32);const day=i=>DAYS[new Date(d.time[i]+'T12:00:00').getDay()];
-  const tm=s=>s?s.slice(11,16):'';
-  el.innerHTML=`<div class="card now"><div class="big">${w[0]}</div><div><div class="t">${Math.round(c.temperature_2m)}°C <small style="font-size:14px;font-weight:400">(${f(c.temperature_2m)}°F)</small></div><div>${w[1]} · מורגש ${Math.round(c.apparent_temperature)}° · לחות ${c.relative_humidity_2m}% · רוח ${Math.round(c.wind_speed_10m)} קמ״ש</div><div class="cnt">זריחה ${tm(d.sunrise[0])} · שקיעה ${tm(d.sunset[0])} (שעון ניו יורק)</div></div></div>
-  <div class="wx" style="margin-top:8px">${d.time.map((t,i)=>{const x=WX_CODES[d.weather_code[i]]||['🌡️','—'];return `<div class="d"><b>${i?day(i).replace('יום ',''):'היום'}</b><div class="e">${x[0]}</div><div>${Math.round(d.temperature_2m_max[i])}° / ${Math.round(d.temperature_2m_min[i])}°</div><small>🌧️ ${d.precipitation_probability_max[i]==null?'—':d.precipitation_probability_max[i]+'%'}</small></div>`}).join('')}</div><div class="cnt">עודכן ${new Date(WX.ts).toLocaleString('he-IL')} · מקור: Open-Meteo</div>`;
-  $$('[data-wxmini]').forEach(x=>x.textContent=`${w[0]} ${Math.round(c.temperature_2m)}°`)}
-async function loadFx(){try{const j=await jf('https://api.frankfurter.app/latest?from=USD&to=ILS');if(j&&j.rates&&j.rates.ILS){FX={r:j.rates.ILS,d:j.date,ts:Date.now()};LS.s('fx',FX);const u=$('#fx-usd');if(u)u.dispatchEvent(new Event('input'))}}catch(e){}}
-/* ================= ריענון והתקנה ================= */
-let refreshing=false;
-async function refreshAll(){if(refreshing)return;refreshing=true;const b=$('#refresh');b.classList.add('spin');
-  PH={};LS.s('ph',PH);
-  try{if('serviceWorker' in navigator){const rg=await navigator.serviceWorker.getRegistration();if(rg)await rg.update()}}catch(e){}
-  await Promise.all([loadWeather(true),loadFx()]);
-  renderEvents();refreshLists();
-  const open=$('#modal.on');if(open&&window._curId)openDetail(window._curId);
-  $$('.pane.on [data-pk]').forEach(el=>{const im=el.querySelector('img');if(im)im.remove();attach(el)});
-  const t=new Date();LS.s('last',t.getTime());$('#last').textContent=`עודכן: ${fmtDate(t)} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
-  b.classList.remove('spin');refreshing=false;toast('העדכון הושלם: מזג אוויר, שער דולר, תמונות ואירועים');}
-let deferred;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;const b=$('#inst');if(b)b.style.display='inline-flex';const hb=$('#instTop');if(hb)hb.style.display='inline-flex'});
-function doInstall(){if(deferred){deferred.prompt();deferred=null}else go('info')}
-/* ================= הוספת מקום ================= */
-
-function openEditPlace(id){
-  const r=REG[id];if(!r)return toast('לא נמצא');
-  const i=Object.assign({},r.item,getOverrides(id));
-  const fields=[
-    ['n','שם (עברית)'],['e','שם באנגלית'],['ad','כתובת'],['ph','טלפון'],['web','אתר'],['hrs','שעות'],['pr','מחיר'],
-    ['s','תיאור קצר'],['why','למה מומלץ / הערה']
-  ];
-  let h=`<button class="x" data-act="close">✕</button><div class="db" style="padding-top:40px"><h2>✏️ עריכת מקום</h2>
-  <div class="cnt">השינויים נשמרים במכשיר שלכם בלבד (לא דורסים את המקור). אפשר לשתף אותם עם חבר.</div>
-  <div class="form" style="margin-top:10px">`;
-  fields.forEach(([k,lab])=>{
-    const val=i[k]!=null?i[k]:'';
-    if(k==='s'||k==='why')h+=`<label style="grid-column:1/-1">${lab}<textarea class="fld-ta" data-ef="${k}" rows="2">${esc(val)}</textarea></label>`;
-    else h+=`<label>${lab}<input class="fld" data-ef="${k}" value="${esc(val)}" ${k==='ad'||k==='e'||k==='web'||k==='ph'?'dir="ltr" style="text-align:right"':''}></label>`;
-  });
-  h+=`</div><div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-    <button class="btn" id="ef-save">💾 שמור שינויים</button>
-    <button class="btn alt" id="ef-reset">איפוס לעריכה המקורית</button>
-  </div></div>`;
-  const sh=$('#sheet');sh.innerHTML=h;$('#modal').classList.add('on');
-  try{history.pushState({m:1},'')}catch(e){}
-  $('#ef-save').onclick=()=>{
-    const edited={};
-    $$('[data-ef]',sh).forEach(el=>{const k=el.dataset.ef;const v=el.value.trim();if(v!==String(r.item[k]!=null?r.item[k]:''))edited[k]=v});
-    if(!USER_META[id])USER_META[id]={};
-    USER_META[id].edited=edited;
-    // merge into REG for live view
-    REG[id].item=Object.assign({},r.item,edited);
-    saveMeta();closeDetail();refreshLists();if(window.refreshMapLayers)refreshMapLayers();toast('השינויים נשמרו');
-  };
-  $('#ef-reset').onclick=()=>{
-    if(USER_META[id])delete USER_META[id].edited;
-    // restore original from type arrays hard - reload from REG was mutated; need original
-    // Best effort: remove edited and re-fetch from source arrays
-    const src={site:SITES,hotel:HOTELS,rest:RESTS,food:FOODS,shop:SHOPS,market:MARKETS,custom:custom}[r.type];
-    if(src){const orig=src.find(x=>x.id===id);if(orig)REG[id].item=Object.assign({},orig)}
-    saveMeta();closeDetail();refreshLists();toast('חזר למקור');
-  };
-}
+  const wd=d=>{const x=new Date(d+'T12:00:00');return DAYS[x.getDay()]};
+  $('#ev-l').innerHTML=l.length?`<div class="grid">${l.map(x=>{
+    const tmSearch='https://www.ticketmaster.com/search?q='+encodeURIComponent(x.e.t);
+    const shareTxt=encodeURIComponent(x.e.em+' '+x.e.t+' — '+fd(x.e.s)+' · '+x.e.v+(x.e.url?'\\n'+x.e.url:''));
+    return `<div class="card" style="padding:10px"><div style="display:flex;justify-content:space-between;gap:6px;align-items:start"><h3 style="margin:0">${x.e.em} ${esc(x.e.t)}</h3><span class="pill" style="background:${x.s[0]==='now'?'#dcfce7;color:#14532d':x.s[0]==='soon'?'#fff4cc;color:#6b4e00':'#eee;color:#555'}">${esc(x.s[1])}</span></div>
+    <div class="cnt">📅 <b>${esc(wd(x.e.s))}</b> ${fd(x.e.s)}${x.e.e!==x.e.s?' – '+fd(x.e.e):''} · ${esc(EV_K[x.e.k]||'')}</div>
+    <div class="cnt ltr" style="text-align:right">📍 ${esc(x.e.v)}</div>
+    <div style="font-size:13.5px;margin:4px 0">${esc(x.e.d)}</div>
+    <div class="cnt">💲 ${esc(x.e.pr)}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <a class="btn sm" target="_blank" rel="noopener" href="${esc(x.e.url)}">🎟️ כרטיסים / פרטים</a>
+      <a class="btn alt sm" target="_blank" rel="noopener" href="${tmSearch}">Ticketmaster</a>
+      <a class="btn alt sm" target="_blank" rel="noopener" href="https://wa.me/?text=${shareTxt}">📤 שתף</a>
+    </div></div>`;
+  }).join('')}</div>`:'<div class="empty">אין אירועים מתאימים. נסו לשנות סינון או להציג אירועים שעברו.</div>'}
 function openAddGeneric(type){
   const titles={hotel:'מלון',rest:'מסעדה',site:'אתר',shop:'חנות',market:'שוק',food:'מאכל'};
   const sh=$('#sheet');
@@ -2567,6 +2491,19 @@ function doToday(){
 }
 
 // wire buttons after DOM ready (called from existing init)
+function renderMyRatings(){
+  const el=$('#my-ratings');if(!el)return;
+  const rows=Object.keys(USER_META||{}).filter(id=>REG[id]&&(USER_META[id].rate||USER_META[id].note));
+  if(!rows.length){el.innerHTML='<div class="cnt">עדיין לא דירגתם מקומות. פתחו מקום ולחצו על הכוכבים, או דרגו ישר מהרשימה.</div>';return}
+  el.innerHTML=rows.map(id=>{const r=REG[id],um=USER_META[id],i=r.item;
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
+      <span>${i.em||'📍'}</span><div style="flex:1"><b><a href="#" data-act="open" data-id="${id}">${esc(i.n)}</a></b>
+      ${um.rate?`<div class="stars">${'★'.repeat(um.rate)}</div>`:''}
+      ${um.note?`<div class="cnt">📝 ${esc(um.note)}</div>`:''}</div>
+      <button class="edit-pencil" data-act="edit" data-id="${id}">✏️</button>
+    </div>`;
+  }).join('');
+}
 function wireEnhancements(){
   const imp=$('#import-file');
   if(imp)imp.onchange=async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;try{const t=await f.text();applyPersonalState(JSON.parse(t))}catch(err){toast('קובץ לא תקין')}};
@@ -2684,8 +2621,8 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(
     LASTPLAN.docs.push({url,desc});LS.s('plan',LASTPLAN);showPlan(LASTPLAN);toast('הקישור נוסף');
   }
   else if(act==='pldocrm'&&LASTPLAN){const di=+a.dataset.di;if(!LASTPLAN.docs)return;LASTPLAN.docs.splice(di,1);LS.s('plan',LASTPLAN);showPlan(LASTPLAN);toast('הקישור הוסר')}
-  else if(act==='rate'){setRate(a.dataset.id,+a.dataset.n);if($('#modal').classList.contains('on'))openDetail(a.dataset.id);refreshLists()}
-  else if(act==='savenote'){const ta=$('#user-note-'+a.dataset.id);setNote(a.dataset.id,ta?ta.value:'');toast('ההערה נשמרה')}
+  else if(act==='rate'){setRate(a.dataset.id,+a.dataset.n);if($('#modal').classList.contains('on'))openDetail(a.dataset.id);refreshLists();try{renderMyRatings()}catch(e){}}
+  else if(act==='savenote'){const ta=$('#user-note-'+a.dataset.id);setNote(a.dataset.id,ta?ta.value:'');toast('ההערה נשמרה');try{renderMyRatings()}catch(e){}}
   else if(act==='edit'){openEditPlace(a.dataset.id)}
   else if(act==='shareloc'){shareMyLocation()}
   else if(act==='shareapp'){shareAppLink()}
@@ -2702,6 +2639,7 @@ const lastT=LS.g('last',null);if(lastT){const t=new Date(lastT);$('#last').textC
 go((location.hash||'').slice(1)||LS.g('tab','map'),true);
 loadWeather();loadFx().then(()=>{});
 wireEnhancements();
+try{renderMyRatings()}catch(e){}
 window.addEventListener('hashchange',()=>go(location.hash.slice(1),true));
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
