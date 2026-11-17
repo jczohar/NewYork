@@ -886,7 +886,7 @@ footer{text-align:center;color:var(--mute);font-size:12px;padding:16px 8px}
 <rect x="236" y="392" width="40" height="14" rx="4" fill="#1d8a77"/>
 <rect x="0" y="472" width="512" height="40" fill="#06132a"/>
 </g></svg></div>
-  <div style="line-height:1.15"><div class="ttl">מדריך המטייל · ניו יורק</div><div class="by" style="font-size:12px">יוצר: <span class="gold">יעקב זוהר</span></div></div>
+  <div style="line-height:1.15"><div class="ttl">ניו יורק - מידע למטייל</div><div class="by" style="font-size:12px">יוצר: <span class="gold">יעקב זוהר</span></div></div>
   <div class="sp"></div>
   <span id="wxmini" data-wxmini></span>
   <span id="last"></span>
@@ -900,7 +900,7 @@ footer{text-align:center;color:var(--mute);font-size:12px;padding:16px 8px}
 <div id="modal"><div id="sheet"></div></div>
 <div id="pickModal"><div id="pickSheet"></div></div>
 <div id="toast"></div>
-<footer>יוצר: <span class="gold">יעקב זוהר</span> · מדריך המטייל — ניו יורק, ארצות הברית · גרסה <span id="ver"></span></footer>
+<footer>יוצר: <span class="gold">יעקב זוהר</span> · ניו יורק - מידע למטייל, ארצות הברית · גרסה <span id="ver"></span></footer>
 <script>/* @preserve
  * Leaflet 1.9.4, a JS library for interactive maps. https://leafletjs.com
  * (c) 2010-2023 Vladimir Agafonkin, (c) 2010-2011 CloudMade
@@ -1527,7 +1527,7 @@ const WX_CODES={0:["☀️","בהיר"],1:["🌤️","בהיר ברובו"],2:["
 })();
 
 'use strict';
-const VERSION='20261117-05',DATA_DATE='14/11/2026';
+const VERSION='20261117-06',DATA_DATE='14/11/2026';
 const $=(s,r)=>(r||document).querySelector(s);
 const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1812,6 +1812,61 @@ function findRoutes(a,b){const A=nearbyStations(a,4,1.4),B=nearbyStations(b,4,1.
     x.s.lines.forEach(la=>{if(!LINE_PATH[la])return;y.s.lines.forEach(lb=>{if(!LINE_PATH[lb]||la===lb)return;LINE_PATH[la].forEach(t=>{if(t===x.s.id||t===y.s.id||!LINE_PATH[lb].includes(t))return;const r1=ride(la,x.s.id,t),r2=ride(lb,t,y.s.id);if(r1&&r2)res.push({cost:base+(r1.stops+r2.stops)*2.2+11,legs:[r1,r2],x,y,t})})})})}));
   res.sort((p,q)=>p.cost-q.cost);const seen=new Set(),out=[];for(const r of res){const k=r.legs.map(l=>l.line).join('>');if(seen.has(k))continue;seen.add(k);out.push(r);if(out.length>=3)break}return out}
 function legTxt(r){const d=SD[r.dir];return `קו ${lineBadges([r.line])} לכיוון <b class="ltr">${esc(d?d.en:'')}</b> (${r.north?'Uptown — צפונה':'Downtown — דרומה'}), ${r.stops===1?'תחנה אחת':r.stops+' תחנות'}`}
+
+let MET_ROUTE_LAYERS=[];
+function clearMetroRoute(){
+  if(!MET)return;
+  MET_ROUTE_LAYERS.forEach(l=>{try{MET.removeLayer(l)}catch(e){}});
+  MET_ROUTE_LAYERS=[];
+}
+function stationsOnLeg(leg){
+  const P=LINE_PATH[leg.line];if(!P)return[];
+  const i=P.indexOf(leg.from),j=P.indexOf(leg.to);
+  if(i<0||j<0)return[];
+  const slice=i<j?P.slice(i,j+1):P.slice(j,i+1).reverse();
+  return slice.map(id=>SD[id]).filter(Boolean);
+}
+function drawMetroRoute(route){
+  if(!route)return;
+  try{initMetro()}catch(e){}
+  if(!MET||typeof L==='undefined')return;
+  clearMetroRoute();
+  const bounds=[];
+  // walk-to start station
+  const start=[route.x.s.lat,route.x.s.lng];
+  const end=[route.y.s.lat,route.y.s.lng];
+  bounds.push(start,end);
+  route.legs.forEach((leg,li)=>{
+    const stns=stationsOnLeg(leg);
+    const latlngs=stns.map(s=>[s.lat,s.lng]);
+    if(latlngs.length>=2){
+      const pl=L.polyline(latlngs,{color:LINE_COL[leg.line]||'#2563eb',weight:8,opacity:0.95}).addTo(MET);
+      MET_ROUTE_LAYERS.push(pl);
+      latlngs.forEach(p=>bounds.push(p));
+    }
+    // transfer marker
+    if(li>0&&route.t){
+      const tid=route.t.id||route.t;
+      const ts=SD[tid];
+      if(ts){
+        const mk=L.circleMarker([ts.lat,ts.lng],{radius:10,color:'#fff',weight:3,fillColor:'#f59e0b',fillOpacity:1})
+          .addTo(MET).bindPopup('🔁 החלפה · '+esc(ts.en));
+        MET_ROUTE_LAYERS.push(mk);
+      }
+    }
+  });
+  // start / end station markers
+  const mkS=L.circleMarker(start,{radius:11,color:'#fff',weight:3,fillColor:'#16a34a',fillOpacity:1})
+    .addTo(MET).bindPopup('🟢 יציאה · '+esc(route.x.s.en));
+  const mkE=L.circleMarker(end,{radius:11,color:'#fff',weight:3,fillColor:'#dc2626',fillOpacity:1})
+    .addTo(MET).bindPopup('🔴 יעד · '+esc(route.y.s.en));
+  MET_ROUTE_LAYERS.push(mkS,mkE);
+  if(bounds.length)MET.fitBounds(bounds,{padding:[40,40],maxZoom:14});
+  // scroll map into view
+  const box=$('#metrobox');if(box)box.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>{if(MET)MET.invalidateSize()},250);
+}
+
 function routeGo(){const a=resolve($('#rg-a').value),b=resolve($('#rg-b').value),out=$('#rg-out');
   if($('#rg-a').value===$('#rg-b').value){out.innerHTML='<div class="note">בחרו שני מקומות שונים.</div>';return}
   const dist=hav(a.ll,b.ll);let h=`<div class="cnt">מרחק בקו אווירי: ${dist.toFixed(1)} ק״מ</div>`;
@@ -1820,10 +1875,21 @@ function routeGo(){const a=resolve($('#rg-a').value),b=resolve($('#rg-b').value)
   if(dist<1.3)h+=`<div class="note g">🚶 קרוב מאוד — כ-${Math.round(dist*1000/75)} דקות ברגל.</div>`;
   const rs=findRoutes(a.ll,b.ll);
   if(!rs.length&&dist>=1.3)h+='<div class="note">לא נמצא קו ישיר או עם החלפה אחת. נסו את הקישור ל-Google Maps למטה, או מונית.</div>';
-  rs.forEach((r,i)=>{const mins=Math.round(r.cost);h+=`<div class="card" style="padding:10px;margin:6px 0"><b>אפשרות ${i+1} · כ-${mins} דקות · $3</b><div style="margin-top:4px">🚶 ${Math.round(r.x.d*1000/75)} דק׳ ברגל אל <b class="ltr">${esc(r.x.s.en)}</b> <small>(${esc(r.x.s.he)})</small></div>${r.legs.map((l,k)=>`<div>${k?'🔁 החלפה ב-<b class="ltr">'+esc(SD[r.t.id||r.t].en)+'</b>:<br>':'🚇 '}${legTxt(l)}</div>`).join('')}<div>⬇️ ירידה ב-<b class="ltr">${esc(r.y.s.en)}</b> <small>(${esc(r.y.s.he)})</small> ואז 🚶 ${Math.round(r.y.d*1000/75)} דק׳ ברגל ליעד</div></div>`});
-  if(rs.length)h+='<div class="cnt">שימו לב: בדקו אם הרכבת עוצרת בתחנה (אקספרס או מקומי) ואם יש שינויים בשירות.</div>';
+  window._lastRoutes=rs;
+  rs.forEach((r,i)=>{const mins=Math.round(r.cost);h+=`<div class="card" style="padding:10px;margin:6px 0"><b>אפשרות ${i+1} · כ-${mins} דקות · $3</b>
+    <div style="margin-top:4px">🚶 ${Math.round(r.x.d*1000/75)} דק׳ ברגל אל <b class="ltr">${esc(r.x.s.en)}</b> <small>(${esc(r.x.s.he)})</small></div>
+    ${r.legs.map((l,k)=>`<div>${k?'🔁 החלפה ב-<b class="ltr">'+esc(SD[r.t.id||r.t].en)+'</b>:<br>':'🚇 '}${legTxt(l)}</div>`).join('')}
+    <div>⬇️ ירידה ב-<b class="ltr">${esc(r.y.s.en)}</b> <small>(${esc(r.y.s.he)})</small> ואז 🚶 ${Math.round(r.y.d*1000/75)} דק׳ ברגל ליעד</div>
+    <div style="margin-top:6px"><button class="btn sm" data-act="showmetro" data-ri="${i}">🗺️ הצג מסלול זה על המפה</button></div>
+  </div>`});
+  if(rs.length){
+    h+='<div class="cnt">שימו לב: בדקו אם הרכבת עוצרת בתחנה (אקספרס או מקומי) ואם יש שינויים בשירות.</div>';
+    h+='<div class="note g">המסלול הראשון מוצג אוטומטית על מפת המטרו למעלה (קו מודגש + סימוני ירוק/אדום).</div>';
+  }
   h+=`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&origin=${a.ll[0]},${a.ll[1]}&destination=${b.ll[0]},${b.ll[1]}&travelmode=transit">🧭 מסלול מדויק ב-Google Maps (תחבורה ציבורית)</a><a class="btn alt" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&origin=${a.ll[0]},${a.ll[1]}&destination=${b.ll[0]},${b.ll[1]}&travelmode=driving">🚕 במונית</a></div><div class="cnt">זמן במונית משוער: כ-${Math.round(6+dist*3.5)} דקות (תלוי בעומס).</div>`;
-  out.innerHTML=h}
+  out.innerHTML=h;
+  if(rs.length){drawMetroRoute(rs[0]);toast('המסלול מוצג על מפת המטרו')}
+}
 
 /* ================= טיפים ================= */
 
@@ -2611,6 +2677,7 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(
   else if(act==='shareapp'){shareAppLink()}
   else if(act==='export'){exportPersonal()}
   else if(act==='addtype'){openAddGeneric(a.dataset.type)}
+  else if(act==='showmetro'){const r=window._lastRoutes&&window._lastRoutes[+a.dataset.ri];if(r){drawMetroRoute(r);toast('מסלול '+((+a.dataset.ri)+1)+' על המפה')}else toast('חשבו מסלול קודם')}
 });
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){history.state&&history.state.m?history.back():closeDetail()}});
 window.addEventListener('popstate',()=>closeDetail());
