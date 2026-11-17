@@ -1517,25 +1517,8 @@ const WX_CODES={0:["☀️","בהיר"],1:["🌤️","בהיר ברובו"],2:["
     ch.postMessage({type:'ping'});
 
     function showAlreadyOpen(){
-      // מונע כפילות הודעות
-      if(document.getElementById('single-inst-banner')) return;
-      const ban = document.createElement('div');
-      ban.id = 'single-inst-banner';
-      ban.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,15,30,.75);display:flex;align-items:center;justify-content:center;padding:16px';
-      ban.innerHTML = `<div style="background:#fff;border-radius:18px;padding:20px;max-width:360px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.35)">
-        <div style="font-size:40px;margin-bottom:8px">📱</div>
-        <h2 style="margin:0 0 8px;font-size:18px;color:#0b1f3a">האפליקציה כבר פתוחה</h2>
-        <p style="margin:0 0 14px;color:#5d6b80;font-size:14px;line-height:1.45">זוהה עותק פעיל. העותק הקיים הובא לחזית. אפשר לסגור את החלון הזה.</p>
-        <button id="single-close" style="border:0;background:#0b1f3a;color:#fff;border-radius:12px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer">סגור חלון זה</button>
-      </div>`;
-      document.documentElement.appendChild(ban);
-      document.getElementById('single-close').onclick = () => {
-        try{ window.close(); }catch(e){}
-        // אם הדפדפן לא מאפשר close – מסתירים את הבאנר וממשיכים
-        setTimeout(()=>{ ban.remove(); toast && toast('אם החלון לא נסגר – סגרו אותו ידנית'); }, 400);
-      };
-      // ניסיון סגירה אוטומטי אחרי רגע קצר (עובד רק בחלק מהמקרים)
-      setTimeout(()=>{ try{ window.close(); }catch(e){} }, 700);
+      // לא חוסמים את המסך — רק הודעה קצרה
+      try{ if(typeof toast==='function') toast('האפליקציה כבר פתוחה בחלון אחר'); }catch(e){}
     }
 
     // אם תוך 450ms לא הגיעה תשובה – אנחנו העותק היחיד
@@ -1544,7 +1527,7 @@ const WX_CODES={0:["☀️","בהיר"],1:["🌤️","בהיר ברובו"],2:["
 })();
 
 'use strict';
-const VERSION='20261117-01',DATA_DATE='14/11/2026';
+const VERSION='20261117-02',DATA_DATE='14/11/2026';
 const $=(s,r)=>(r||document).querySelector(s);
 const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1600,10 +1583,10 @@ function attach(el){const r=REG[el.dataset.pk]||(el._it&&{item:el._it});if(!r)re
   getPhoto(r.item).then(u=>{if(!u||el.querySelector('img'))return;const im=new Image();im.alt=r.item.e||r.item.n;im.loading='lazy';im.referrerPolicy='no-referrer';im.onload=()=>im.classList.add('ok');im.onerror=()=>im.remove();im.src=u;el.insertBefore(im,el.firstChild)})}
 function lazyPhotos(root){$$('[data-pk]',root).forEach(el=>{if(IO)IO.observe(el);else attach(el)})}
 /* ---------- cards ---------- */
-const areaTxt=r=>{const it=r.item;return (it.a&&AREAS[it.a])||''};
+const areaTxt=r=>{const it=(r&&r.item)||{};return (it.a&&AREAS[it.a])||''};
 function shortOf(r){const i=r.item;return i.s||i.why||i.d||i.note||''}
-function tagsOf(r){const i=r.item,t=[];
-  if(r.type==='site'){t.push(`<span class="tag">${esc(SITE_CATS[i.k]||'')}</span>`);if(i.tags.includes('indoor')&&!i.tags.includes('outdoor'))t.push('<span class="tag">בפנים</span>');if(i.tags.includes('outdoor')&&!i.tags.includes('indoor'))t.push('<span class="tag">בחוץ</span>');if(i.tags.includes('kids'))t.push('<span class="tag g">מתאים לילדים</span>');if(i.tags.includes('must'))t.push('<span class="tag y">חובה</span>');if(i.tags.includes('jewish'))t.push('<span class="tag">יהודי</span>')}
+function tagsOf(r){const i=r.item||{},t=[],tg=i.tags||[];
+  if(r.type==='site'){t.push(`<span class="tag">${esc(SITE_CATS[i.k]||'')}</span>`);if(tg.includes('indoor')&&!tg.includes('outdoor'))t.push('<span class="tag">בפנים</span>');if(tg.includes('outdoor')&&!tg.includes('indoor'))t.push('<span class="tag">בחוץ</span>');if(tg.includes('kids'))t.push('<span class="tag g">מתאים לילדים</span>');if(tg.includes('must'))t.push('<span class="tag y">חובה</span>');if(tg.includes('jewish'))t.push('<span class="tag">יהודי</span>')}
   else if(r.type==='hotel'){t.push(`<span class="tag y">${i.pr}</span>`);(i.tags||[]).slice(0,3).forEach(x=>t.push(`<span class="tag">${esc(TAGHE[x]||x)}</span>`))}
   else if(r.type==='rest'){t.push(`<span class="tag y">${esc(i.pr)} · ${esc(i.pp)}</span>`);t.push(`<span class="tag">${esc(CUISINES[i.cu]||'')}</span>`);if(i.cu==='kosher')t.push('<span class="tag g">כשר</span>')}
   else if(r.type==='shop'){t.push(`<span class="tag">${esc(SHOP_T[i.type]||'')}</span>`)}
@@ -2634,14 +2617,25 @@ window.addEventListener('popstate',()=>closeDetail());
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b)go(b.dataset.tab)});
 $('#refresh').onclick=refreshAll;$('#instTop').onclick=doInstall;
-buildShell();buildMapPane();buildSites();buildHotels();buildTransit();buildRest();buildFood();buildShop();buildMarkets();buildTips();buildPlan();buildEvents();buildInfo();
-const lastT=LS.g('last',null);if(lastT){const t=new Date(lastT);$('#last').textContent=`עודכן: ${fmtDate(t)} ${pad(t.getHours())}:${pad(t.getMinutes())}`}else $('#last').textContent='תוכן מ-'+DATA_DATE;
-go((location.hash||'').slice(1)||LS.g('tab','map'),true);
-loadWeather();loadFx().then(()=>{});
-wireEnhancements();
-try{renderMyRatings()}catch(e){}
-window.addEventListener('hashchange',()=>go(location.hash.slice(1),true));
-if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+try{
+  buildShell();
+  const builders=[buildMapPane,buildSites,buildHotels,buildTransit,buildRest,buildFood,buildShop,buildMarkets,buildTips,buildPlan,buildEvents,buildInfo];
+  builders.forEach(fn=>{try{fn()}catch(err){console.error('build fail',fn.name,err);try{toast('שגיאה בטעינת חלק: '+fn.name)}catch(e){}}});
+  const lastT=LS.g('last',null);if(lastT){const t=new Date(lastT);const el=$('#last');if(el)el.textContent=`עודכן: ${fmtDate(t)} ${pad(t.getHours())}:${pad(t.getMinutes())}`}else{const el=$('#last');if(el)el.textContent='תוכן מ-'+DATA_DATE}
+  let startTab=(location.hash||'').slice(1)||LS.g('tab','map');
+  if(startTab.startsWith('import='))startTab='map';
+  go(startTab,true);
+  loadWeather();loadFx().then(()=>{});
+  try{wireEnhancements()}catch(e){console.error(e)}
+  try{renderMyRatings()}catch(e){}
+  try{importFromHash()}catch(e){}
+  window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(!h.startsWith('import='))go(h,true)});
+  if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+}catch(err){
+  console.error('INIT FATAL',err);
+  const p=document.getElementById('panes');
+  if(p)p.innerHTML='<div class="card" style="padding:16px;margin:12px"><h2>שגיאת טעינה</h2><p>נסו לרענן (↻) או לנקות מטמון של האתר.</p><pre style="white-space:pre-wrap;font-size:12px;direction:ltr;text-align:left">'+String(err&&err.message||err)+'</pre><button class="btn" onclick="location.reload()">רענון</button></div>';
+}
 </script>
 <script>document.getElementById('ver').textContent=VERSION;</script>
 </body>
